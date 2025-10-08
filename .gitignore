@@ -1,0 +1,125 @@
+# Root .gitignore for the repository
+# Combines ignores for frontend (Next.js/Node) and backend-services (Python)
+
+##########################################################################
+# Node / Next.js / frontend
+##########################################################################
+
+# dependencies
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/
+frontend/.yarn/*
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+
+# production
+frontend/build/
+
+# local env files
+frontend/.env
+frontend/.env.*
+
+# logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# misc
+frontend/.vercel/
+frontend/.DS_Store
+frontend/*.pem
+frontend/next-env.d.ts
+frontend/coverage/
+
+# Ignore lockfiles if you manage them separately (optional)
+# frontend/package-lock.json
+# frontend/yarn.lock
+
+##########################################################################
+# Python / backend-services
+##########################################################################
+
+# Byte-compiled / optimized / DLL files
+backend-services/__pycache__/
+backend-services/*.py[cod]
+backend-services/*$py.class
+
+# Distribution / packaging
+backend-services/build/
+backend-services/dist/
+backend-services/.eggs/
+backend-services/*.egg-info/
+backend-services/*.egg
+backend-services/*.zip
+
+# Virtual environments
+backend-services/.env
+backend-services/.venv/
+backend-services/venv/
+backend-services/ENV/
+backend-services/env/
+
+# Python env and caches
+backend-services/.pytest_cache/
+
+# PyInstaller
+backend-services/*.manifest
+backend-services/*.spec
+
+##########################################################################
+# General / Editor / OS
+##########################################################################
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+
+# OS files
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# dotenv
+.env
+.env.*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Python bytecode anywhere else
+**/__pycache__/
+**/*.py[cod]
+
+# Node modules anywhere
+**/node_modules/
+
+# Next / build outputs anywhere
+**/.next/
+**/out/
+**/dist/
+
+# Vercel / netlify
+.vercel/
+.netlify/
+
+# Git LFS placeholder (if you use LFS for large files)
+#*.psd filter=lfs diff=lfs merge=lfs -text
+
+##########################################################################
+# Project-specific exceptions (if you want to force-add something, e.g.)
+# Use: git add -f <path>
+##########################################################################
