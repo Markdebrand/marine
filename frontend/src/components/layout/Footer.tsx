@@ -40,7 +40,7 @@ export function Footer() {
   return (
     <footer className="mt-24 bg-[#0f172a] text-zinc-300">
       {/* Top content */}
-      <div className="container mx-auto px-4 py-12 grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+  <div className="container mx-auto px-6 sm:px-8 lg:px-12 py-12 grid gap-10 md:grid-cols-2 lg:grid-cols-4">
         {/* Brand + developed by */}
         <div>
           <Link href="/" className="inline-flex items-center gap-2 rounded-md bg-white/5 px-3 py-2 ring-1 ring-white/10">
@@ -131,8 +131,8 @@ export function Footer() {
       </div>
 
       {/* Bottom bar */}
-      <div className="border-t border-white/10">
-        <div className="container mx-auto px-4 py-4 text-xs text-zinc-400 flex items-center justify-between">
+  <div className="border-t border-white/10">
+  <div className="container mx-auto px-6 sm:px-8 lg:px-12 py-4 text-xs text-zinc-400 flex items-center justify-between">
           <div>Copyright {year} © HSO Petroleum Services, LLC. All rights reserved.</div>
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

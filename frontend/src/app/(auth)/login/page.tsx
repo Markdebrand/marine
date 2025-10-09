@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { authService } from "@/services/authService";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,9 +16,12 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { access_token } = await authService.login({ email, password });
-      setToken(access_token);
-  router.replace("/watchlist");
+      // Login estático
+      const isValid = email === "admin@example.com" && password === "admin123";
+      if (!isValid) throw new Error("Credenciales inválidas");
+      const fakeToken = "static-dev-token";
+      setToken(fakeToken);
+      router.replace("/map");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Error al iniciar sesión";
       setError(message);
