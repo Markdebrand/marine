@@ -1,18 +1,26 @@
-# Usa una imagen base de Python ligera para un tamaño de contenedor más pequeño.
-FROM python:3.10-slim-buster
+FROM python:3.11-slim
 
-# Establece el directorio de trabajo dentro del contenedor.
+# Evitar buffering de Python para logs en contenedor
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Copia el archivo de requisitos e instala las dependencias. Esto aprovecha el caché de Docker.
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Instalar dependencias del sistema necesarias para compilación si se requieren
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	build-essential \
+	libpq-dev \
+	&& rm -rf /var/lib/apt/lists/*
 
-# Copia el resto de tu código de la aplicación.
+# Actualizar pip y copy requirements para aprovechar cache
+COPY requirements.txt .
+RUN python -m pip install --upgrade pip setuptools wheel && \
+	pip install --no-cache-dir -r requirements.txt
+
+# Copiar código y establecer permisos seguros
 COPY . .
 
-# Expone el puerto que tu aplicación usa para escuchar las peticiones.
+# Exponer puerto usado por Gunicorn/Uvicorn
 EXPOSE 8000
 
-# Define el comando para ejecutar tu aplicación Gunicorn/Uvicorn.
+# Ejecutar Gunicorn
 CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-c", "gunicorn.conf.py", "app.main:app"]

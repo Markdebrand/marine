@@ -21,8 +21,6 @@ class RequireAuthMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         # Defaults: guard typical authenticated modules
         self.protected = list(protected_prefixes or [
-            "/due",
-            "/plaid",
             "/rpc",
             "/auth/me",
             "/auth/profile",

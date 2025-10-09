@@ -1,0 +1,16 @@
+// Caddy global options
+{
+  email admin@hsomarine.com
+}
+
+# Producción
+hsomarine.com, www.hsomarine.com {
+  encode gzip
+  reverse_proxy hsomarine-production-frontend-1:80
+}
+
+# Test
+developmentapi.hsomarine.com {
+  encode gzip
+  reverse_proxy hsomarine-test-frontend-1:80
+}

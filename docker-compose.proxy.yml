@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2.7-alpine
+    container_name: hsomarine-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/hsomarine-proxy/caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - prod_net
+      - test_net  # habilitar cuando exista la red de test
+
+networks:
+  prod_net:
+    external: true
+    name: hsomarine-production_app
+  test_net:
+    external: true
+    name: hsomarine-test_app
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

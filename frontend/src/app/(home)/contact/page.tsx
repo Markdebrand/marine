@@ -50,7 +50,7 @@ export default function ContactPage() {
 
   {/* Contact information */}
         <div className="glass-card p-6 sm:p-8">
-          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 text-center">HSO Trade</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 text-center">HSO Marine</h2>
           <ul className="mt-6 space-y-5 text-slate-700">
             <li className="flex items-start gap-3">
               <MapPin className="mt-0.5 h-5 w-5 text-red-600" />
@@ -86,7 +86,7 @@ export default function ContactPage() {
             </li>
             <li className="flex items-start gap-3">
               <Mail className="mt-0.5 h-5 w-5 text-red-600" />
-              <div className="text-sm text-slate-700">support@hsotrade.com</div>
+              <div className="text-sm text-slate-700">support@hsomarine.com</div>
             </li>
           </ul>
         </div>

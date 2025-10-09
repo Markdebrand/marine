@@ -11,8 +11,6 @@ PLANS: Dict[str, Dict[str, Any]] = {
         "support": "BASIC",
         "features": {
             "dashboards": {"max": 3},
-            "due_diligence": {"max_monthly": 3},
-            "plaid": {"monthly_included": 0, "allow_optional": True},
             "multiregional": False,
         },
     },
@@ -21,8 +19,6 @@ PLANS: Dict[str, Dict[str, Any]] = {
         "support": "STANDARD",
         "features": {
             "dashboards": {"max": 5},
-            "due_diligence": {"max_monthly": 5},
-            "plaid": {"monthly_included": 5, "allow_optional": True},
             "multiregional": True,
         },
     },
@@ -31,8 +27,6 @@ PLANS: Dict[str, Dict[str, Any]] = {
         "support": "PRIORITY",
         "features": {
             "dashboards": {"max": 8},
-            "due_diligence": {"max_monthly": 8},
-            "plaid": {"monthly_included": 15, "allow_optional": True},
             "multiregional": True,
         },
     },
@@ -41,8 +35,6 @@ PLANS: Dict[str, Dict[str, Any]] = {
         "support": "DEDICATED",
         "features": {
             "dashboards": {"max": 10},
-            "due_diligence": {"max_monthly": 10},
-            "plaid": {"monthly_included": 30, "allow_optional": True},
             "multiregional": True,
         },
     },
@@ -91,11 +83,12 @@ def ensure_admin_user(db: Session) -> None:
 
 
 def ensure_seed_permissions(db: Session) -> None:
-    """Crea permisos básicos (idempotente)."""
-    wanted = [
-        {"slug": "due.create", "name": "Crear Due Diligence"},
-        {"slug": "due.view", "name": "Ver Due Diligence"},
-    ]
+    """Crea permisos básicos (idempotente).
+
+    En HSO Marine, no existen permisos due.* heredados.
+    Mantén aquí futuros permisos si se requieren.
+    """
+    wanted: list[dict[str, str]] = []
     existing = {str(p.slug): p for p in db.query(m.Permission).all()}
     for w in wanted:
         slug = str(w["slug"])  # normalize
@@ -167,9 +160,8 @@ def ensure_seed_rbac(db: Session) -> None:
     if not admin_role or not user_role:
         return
 
-    # admin -> todos los permisos
+    # admin -> todos los permisos (si existieran)
     all_perms = [str(p.slug) for p in db.query(m.Permission).all()]
     _ensure_role_permissions(db, admin_role, all_perms)
 
-    # user -> due.create, due.view
-    _ensure_role_permissions(db, user_role, ["due.create", "due.view"])
+    # user -> sin permisos adicionales por defecto

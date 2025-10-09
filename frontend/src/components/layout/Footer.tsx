@@ -44,8 +44,8 @@ export function Footer() {
         {/* Brand + developed by */}
         <div>
           <Link href="/" className="inline-flex items-center gap-2 rounded-md bg-white/5 px-3 py-2 ring-1 ring-white/10">
-            <Image src="/Logo-2.svg" alt="HSO Trade" width={28} height={28} className="h-7 w-7" />
-            <span className="font-semibold text-white">HSO Trade</span>
+            <Image src="/Logo-2.svg" alt="HSO Marine" width={28} height={28} className="h-7 w-7" />
+            <span className="font-semibold text-white">HSO Marine</span>
           </Link>
 
           <div className="mt-4 flex items-center gap-3">
@@ -108,7 +108,7 @@ export function Footer() {
             <li className="flex items-start gap-3">
               <IconMail className="mt-0.5 h-4 w-4 text-zinc-400" />
               <div>
-                <a href="mailto:support@hsotrade.com" className="hover:text-white">support@hsotrade.com</a>
+                <a href="mailto:support@hsomarine.com" className="hover:text-white">support@hsomarine.com</a>
                 <div className="text-xs text-zinc-500">24/7 Support</div>
               </div>
             </li>
@@ -133,7 +133,7 @@ export function Footer() {
       {/* Bottom bar */}
   <div className="border-t border-white/10">
   <div className="container mx-auto px-6 sm:px-8 lg:px-12 py-4 text-xs text-zinc-400 flex items-center justify-between">
-          <div>Copyright {year} © HSO Petroleum Services, LLC. All rights reserved.</div>
+          <div>Copyright {year} © HSO Marine. All rights reserved.</div>
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/5 ring-1 ring-white/10 text-zinc-300 hover:text-white"

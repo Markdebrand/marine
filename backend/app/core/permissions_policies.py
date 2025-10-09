@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db import models as m
 from app.core.auth.session_manager import get_current_user
-from app.core.services.usage_service import get_active_subscription, get_feature_limit_from_plan
 from app.utils.adapters.cache_adapter import get_cache, set_cache
 from app.config.settings import SESSION_CACHE_TTL
 
@@ -57,16 +56,4 @@ def require_permission(perm_slug: str):
             return user
         raise HTTPException(status_code=403, detail=f"Falta permiso: {perm_slug}")
     return _dep
-
-
-# --- Due Diligence specific guard ---
-def require_due_create(user: m.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Authorize Due Diligence creation via subscription plan limits (not roles)."""
-    if getattr(user, "is_superadmin", False) or getattr(user, "role", None) == "admin":
-        return user
-    try:
-        sub = get_active_subscription(db, user.id)  # type: ignore
-        _ = get_feature_limit_from_plan(db, sub, "due_diligence", "max_monthly")
-    except Exception as exc:
-        raise exc
-    return user
+# (Eliminado) Policies específicas de Due Diligence: ya no forman parte del proyecto HSO Marine.

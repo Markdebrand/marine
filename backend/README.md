@@ -134,7 +134,7 @@ Seeding automático:
 
 ## Contacto (SMTP)
 
-Las solicitudes del formulario de Contact Sales se envían por correo a `webform@hsotrade.com`, donde son ingeridas automáticamente por el CRM de Odoo. No se persisten en base de datos.
+Las solicitudes del formulario de Contact Sales se envían por correo a `webform@hsomarine.com`, donde son ingeridas automáticamente por el CRM de Odoo. No se persisten en base de datos.
 
 - Endpoint principal: `POST /contact/submit` (SMTP, respeta `EMAIL_TO`).
 - Alternativa: `POST /contact-us` (router minimalista).
@@ -144,14 +144,14 @@ Variables de entorno relevantes (ejemplo):
 ```
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
-SMTP_USER=info@hsotrade.com
+SMTP_USER=support@hsomarine.com
 SMTP_PASSWORD=********
 SMTP_TLS=true
 SMTP_SSL=false
-EMAIL_SENDER=info@hsotrade.com
-EMAIL_TO=webform@hsotrade.com
+EMAIL_SENDER=support@hsomarine.com
+EMAIL_TO=webform@hsomarine.com
 # Opcional: varias separadas por coma
-SMTP_CC=ops@hsotrade.com, sales@hsotrade.com
+SMTP_CC=ops@hsomarine.com, sales@hsomarine.com
 ```
 
 Comportamiento:

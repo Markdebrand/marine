@@ -8,8 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db import models as m
 from app.core.auth.session_manager import get_current_user
-from app.core.services.usage_service import get_active_subscription, get_feature_limit_from_plan
-from app.utils.adapters.cache_adapter import get_cache, set_cache, clear_cache
+from app.utils.adapters.cache_adapter import get_cache, set_cache
 from app.config.settings import SESSION_CACHE_TTL
 
 
@@ -20,25 +19,7 @@ def require_admin(user: m.User = Depends(get_current_user)) -> m.User:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Requires admin role")
 
 
-def require_due_create(
-    user: m.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Authorize creation of Due Diligence based on subscription/plan.
-
-    Rules:
-    - Superadmin/Admin: always allowed.
-    - Others: must have an active subscription with feature 'due_diligence'
-      and a defined limit (None means unlimited, any int >= 0 allowed).
-    """
-    if getattr(user, "is_superadmin", False) or getattr(user, "role", None) == "admin":
-        return user
-    try:
-        sub = get_active_subscription(db, user.id)  # type: ignore[arg-type]
-        _ = get_feature_limit_from_plan(db, sub, "due_diligence", "max_monthly")
-    except Exception as exc:  # bubble up 402/403
-        raise exc
-    return user
+# (Eliminado) require_due_create: no se utiliza en HSO Marine.
 
 
 # Placeholders for future fine-grained RBAC backed by tables or JWT claims

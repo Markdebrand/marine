@@ -1,9 +1,11 @@
+import multiprocessing
+
 bind = "0.0.0.0:8000"
-workers = 2
+# Calcular workers basados en CPUs (típicamente 2 * cores + 1), pero cap a 8
+workers = min(2 * multiprocessing.cpu_count() + 1, 8)
 worker_class = "uvicorn.workers.UvicornWorker"
-# Ajusta según CPU/RAM: workers = 2 * cores + 1
 accesslog = "-"
 errorlog = "-"
 loglevel = "info"
-# timeout generoso si Odoo responde lento
+# Timeout generoso por integraciones externas (p. ej. Odoo)
 timeout = 240
