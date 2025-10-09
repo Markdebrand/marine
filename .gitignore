@@ -125,3 +125,43 @@ pnpm-debug.log*
 ##########################################################################
 # Ignore project documentation folder
 documentations/
+
+##########################################################################
+# Docker / containerization
+##########################################################################
+# Local docker-compose overrides and env files (may contain secrets)
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.*.local.yml
+docker-compose.*.override.yml
+docker-compose.secrets.yml
+docker-compose.secrets.*
+docker-compose.*.env
+
+# Common docker environment files
+.dockerenv
+.env.docker
+
+# Docker build context / local docker files
+.docker/
+docker/
+
+# Docker volumes, data, and backups
+docker-data/
+docker_volumes/
+volumes/
+
+# Devcontainer (VS Code) files
+.devcontainer/
+.devcontainer/**
+
+# Ignore any per-user Dockerfiles or local image folders
+Dockerfile.local
+Dockerfile.*.local
+
+# Explicitly ignore project env files and compose files containing secrets
+variables.env.production
+variables.env.test
+docker-compose.prod.yml
+docker-compose.test.yml
+docker-compose.proxy.yml
