@@ -1,0 +1,40 @@
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch master
+# Changes to be committed:
+#	modified:   package.json
+#	new file:   public/DevelopedMDB.webp
+#	new file:   public/Icon.png
+#	new file:   public/Logo-2.png
+#	new file:   public/Logo-2.svg
+#	deleted:    public/file.svg
+#	deleted:    public/globe.svg
+#	deleted:    public/next.svg
+#	deleted:    public/vercel.svg
+#	deleted:    public/window.svg
+#	new file:   src/app/(app)/layout.tsx
+#	new file:   src/app/(app)/map/page.tsx
+#	new file:   src/app/(app)/watchlist/page.tsx
+#	new file:   src/app/(auth)/login/page.tsx
+#	new file:   src/app/(home)/about/page.tsx
+#	new file:   src/app/(home)/contact/page.tsx
+#	new file:   src/app/(home)/layout.tsx
+#	new file:   src/app/(home)/page.tsx
+#	new file:   src/app/(home)/services/page.tsx
+#	deleted:    src/app/favicon.ico
+#	modified:   src/app/globals.css
+#	modified:   src/app/layout.tsx
+#	modified:   src/app/page.tsx
+#	new file:   src/components/auth/Protected.tsx
+#	new file:   src/components/layout/Footer.tsx
+#	new file:   src/components/layout/Navbar.tsx
+#	new file:   src/features/alerts/utils.ts
+#	new file:   src/hooks/useAuth.ts
+#	new file:   src/lib/api.ts
+#	new file:   src/lib/utils.ts
+#	new file:   src/services/authService.ts
+#	new file:   src/store/authStore.ts
+#	modified:   yarn.lock
+#
