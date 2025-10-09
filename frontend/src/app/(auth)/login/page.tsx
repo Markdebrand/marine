@@ -16,14 +16,14 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      // Login estático
+      // Static login
       const isValid = email === "admin@example.com" && password === "admin123";
-      if (!isValid) throw new Error("Credenciales inválidas");
+      if (!isValid) throw new Error("Invalid credentials");
       const fakeToken = "static-dev-token";
       setToken(fakeToken);
       router.replace("/map");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Error al iniciar sesión";
+      const message = err instanceof Error ? err.message : "Login failed";
       setError(message);
     } finally {
       setLoading(false);
@@ -51,7 +51,7 @@ export default function LoginPage() {
               <a href="#" className="text-zinc-600 hover:underline">Forgot password?</a>
             </div>
             <button className="inline-flex items-center rounded-md bg-red-600 px-4 py-2 text-white text-sm font-medium hover:bg-red-700" disabled={loading}>
-              {loading ? "Entrando…" : "LOG IN"}
+              {loading ? "Signing in…" : "LOG IN"}
             </button>
           </form>
           <div className="text-sm text-zinc-600 mt-4">

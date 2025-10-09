@@ -9,7 +9,7 @@ export default function Home() {
     <>
       <Navbar />
   <main className="container mx-auto px-6 sm:px-8 lg:px-12">
-        {/* Hero mejorado */}
+        {/* Enhanced hero */}
         <section className="relative overflow-visible py-14 sm:py-20">
           {/* decor — expand beyond container to avoid clipping */}
           <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[140%] w-[140%] -translate-x-1/2 -translate-y-1/2">
@@ -21,32 +21,32 @@ export default function Home() {
             <div>
               <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200">MVP • Odoo SSoT</span>
               <h1 className="mt-3 text-3xl sm:text-5xl font-semibold tracking-tight text-slate-900">
-                Una plataforma. <span className="text-red-600">AIS</span> en <span className="text-red-600">tiempo real</span> para operaciones marítimas
+                One platform. <span className="text-red-600">AIS</span> in <span className="text-red-600">real time</span> for maritime operations
               </h1>
               <p className="mt-4 text-slate-600 leading-relaxed">
-                Mapa vivo, búsqueda por MMSI/IMO/nombre, ficha combinada, y gestión de favoritos/alertas.
-                Arquitectura híbrida WSS + REST con bajos costos y cumplimiento de licencias.
+                Live map, search by MMSI/IMO/name, unified vessel profile, and favorites/alerts management.
+                Hybrid WSS + REST architecture with low cost and license compliance.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/map"
                   className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-white text-base font-medium shadow hover:bg-red-700"
                 >
-                  <Map className="h-5 w-5" /> Ver mapa en vivo
+                  <Map className="h-5 w-5" /> View live map
                 </Link>
                 <Link
                   href="/about"
                   className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-slate-800 text-base font-medium ring-1 ring-slate-200 hover:bg-slate-50"
                 >
-                  <Play className="h-5 w-5 text-red-600" /> Ver demo
+                  <Play className="h-5 w-5 text-red-600" /> View demo
                 </Link>
               </div>
               <div className="mt-6 text-sm text-slate-500">
-                Seguridad: JWT httpOnly + CSRF • HTTPS • CSP • Roles desde Odoo
+                Security: httpOnly JWT + CSRF • HTTPS • CSP • Roles from Odoo
               </div>
             </div>
 
-            {/* panel visual derecho */}
+            {/* right visual panel */}
             <div className="relative">
               <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-sky-50 via-white to-indigo-50 p-2 shadow-[0_10px_30px_rgba(2,6,23,0.08)] ring-1 ring-slate-200">
                 <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
@@ -59,33 +59,33 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Qué puedes hacer */}
+        {/* What you can do */}
         <section className="py-12 border-t border-slate-200">
-          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900">Una plataforma. Capacidades clave</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900">One platform. Key capabilities</h2>
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[{
-              title: "Mapa en vivo",
-              desc: "MapLibre GL (WebGL), marcadores rotados, clustering y mini-trayecto 6–12 h.",
+              title: "Live map",
+              desc: "MapLibre GL (WebGL), rotated markers, clustering, and 6–12h mini-track.",
               Icon: Map
             }, {
-              title: "Búsqueda y ficha",
-              desc: "Busca por MMSI/IMO/nombre. Ficha con estático enriquecido + último estado.",
+              title: "Search & profile",
+              desc: "Search by MMSI/IMO/name. Profile with enriched static data + last position.",
               Icon: Search
             }, {
-              title: "Favoritos y alertas",
-              desc: "ABM de watchlist y alertas (geocerca/puerto) contra Odoo.",
+              title: "Favorites & alerts",
+              desc: "CRUD for watchlist and alerts (geofence/port) synchronized with Odoo.",
               Icon: BellRing
             }, {
-              title: "Puertos y eventos",
-              desc: "Consulta UN/LOCODE y arribos/salidas si el proveedor lo soporta.",
+              title: "Ports & events",
+              desc: "Query UN/LOCODE and arrivals/departures when the provider supports it.",
               Icon: Ship
             }, {
-              title: "Bajo costo y latencia",
-              desc: "Stream WSS para posiciones y REST con cache TTL para enriquecimiento.",
+              title: "Low cost & latency",
+              desc: "WSS stream for positions and REST with TTL cache for enrichment.",
               Icon: Gauge
             }, {
-              title: "Seguridad",
-              desc: "JWT httpOnly + CSRF, HTTPS, CSP estricta, roles desde Odoo.",
+              title: "Security",
+              desc: "httpOnly JWT + CSRF, HTTPS, strict CSP, roles from Odoo.",
               Icon: Shield
             }].map(({ title, desc, Icon }, i) => (
               <div key={i} className="relative glass-card glass-hover p-6">
@@ -99,46 +99,46 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Arquitectura y métricas */}
+        {/* Architecture & metrics */}
         <section className="py-12 border-t border-slate-200">
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="glass-card glass-hover p-6">
-              <div className="text-sm font-medium text-slate-700">Arquitectura AIS Híbrida</div>
+              <div className="text-sm font-medium text-slate-700">Hybrid AIS Architecture</div>
               <ul className="mt-3 space-y-3 text-slate-600">
-                <li className="flex items-start gap-3"><Network className="mt-0.5 h-5 w-5 text-red-600" /><span>WSS/SSE para posiciones en vivo por BBOX y filtros.</span></li>
-                <li className="flex items-start gap-3"><Server className="mt-0.5 h-5 w-5 text-red-600" /><span>FastAPI broker: normalización, cache TTL, geoprocesos, stream a la UI.</span></li>
-                <li className="flex items-start gap-3"><Database className="mt-0.5 h-5 w-5 text-red-600" /><span>PostgreSQL + PostGIS + TimescaleDB para telemetría y tracks recientes.</span></li>
-                <li className="flex items-start gap-3"><Shield className="mt-0.5 h-5 w-5 text-red-600" /><span>Odoo como SSoT: maestros, watchlist/alertas, auditoría, contratos.</span></li>
+                <li className="flex items-start gap-3"><Network className="mt-0.5 h-5 w-5 text-red-600" /><span>WSS/SSE for live positions by BBOX and filters.</span></li>
+                <li className="flex items-start gap-3"><Server className="mt-0.5 h-5 w-5 text-red-600" /><span>FastAPI broker: normalization, TTL cache, geoprocessing, and UI stream.</span></li>
+                <li className="flex items-start gap-3"><Database className="mt-0.5 h-5 w-5 text-red-600" /><span>PostgreSQL + PostGIS + TimescaleDB for telemetry and recent tracks.</span></li>
+                <li className="flex items-start gap-3"><Shield className="mt-0.5 h-5 w-5 text-red-600" /><span>Odoo as SSoT: masters, watchlist/alerts, auditing, contracts.</span></li>
               </ul>
             </div>
 
             <div className="glass-card glass-hover p-6">
-              <div className="text-sm font-medium text-slate-700">Métricas objetivo (MVP)</div>
+              <div className="text-sm font-medium text-slate-700">Target metrics (MVP)</div>
               <ul className="mt-3 space-y-3 text-slate-600">
-                <li>• Primer render del mapa &lt; 3 s • Actualizaciones &lt; 5 s desde WSS</li>
-                <li>• Búsqueda (MMSI/IMO/nombre) &lt; 800 ms (cache caliente)</li>
-                <li>• Ficha: estático (REST cache) + último estado (WSS/BD) + mini-trayecto</li>
-                <li>• Watchlist/Alertas: CRUD en Odoo y triggers visibles en la UI</li>
+                <li>• First map render &lt; 3 s • Updates &lt; 5 s from WSS</li>
+                <li>• Search (MMSI/IMO/name) &lt; 800 ms (warm cache)</li>
+                <li>• Profile: static (REST cache) + last state (WSS/DB) + mini-track</li>
+                <li>• Watchlist/Alerts: CRUD in Odoo and triggers visible in the UI</li>
               </ul>
             </div>
           </div>
         </section>
 
-        {/* Roadmap breve y CTA */}
+        {/* Short roadmap & CTA */}
         <section className="py-12 border-t border-slate-200">
           <div className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h3 className="text-lg font-semibold text-slate-900">Roadmap inicial — siguiente entrega</h3>
-            <p className="mt-2 text-slate-600">En la próxima fase nos centraremos en entregar capacidades operativas mínimas y validar con usuarios piloto.</p>
+            <h3 className="text-lg font-semibold text-slate-900">Initial roadmap — next delivery</h3>
+            <p className="mt-2 text-slate-600">In the next phase we will focus on delivering minimum operational capabilities and validating with pilot users.</p>
             <ul className="mt-4 list-disc list-inside text-slate-700 space-y-2">
-              <li>Desplegar el stream en vivo en staging y validar latencia y reconexiones con datos reales.</li>
-              <li>Implementar búsqueda y ficha de buque (cache local + enriquecimiento bajo demanda).</li>
-              <li>Habilitar watchlist y alertas (geocerca/puerto) con CRUD sincronizado en Odoo.</li>
-              <li>Instrumentar métricas clave (SSE/REST latency, reconexiones, consumo de proveedores).</li>
-              <li>Ejecutar pruebas básicas de seguridad y preparar el despliegue con Docker Compose.</li>
+              <li>Deploy live stream on staging and validate latency and reconnections with real data.</li>
+              <li>Implement vessel search and profile (local cache + on-demand enrichment).</li>
+              <li>Enable watchlist and alerts (geofence/port) with CRUD synchronized with Odoo.</li>
+              <li>Instrument key metrics (SSE/REST latency, reconnects, provider consumption).</li>
+              <li>Run basic security tests and prepare deployment with Docker Compose.</li>
             </ul>
             <div className="mt-4">
               <Link href="/contact" className="inline-flex items-center rounded-lg border border-red-600 bg-red-50 px-4 py-2 text-red-700 font-medium hover:bg-red-100">
-                Solicitar acceso beta
+                Request beta access
               </Link>
             </div>
           </div>

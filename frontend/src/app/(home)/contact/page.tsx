@@ -4,7 +4,7 @@ export default function ContactPage() {
   return (
     <section className="container mx-auto px-6 sm:px-8 lg:px-12 py-12">
       <div className="grid gap-8 lg:gap-10 md:grid-cols-2">
-        {/* Formulario */}
+  {/* Form */}
   <div className="glass-card red-glow p-6 sm:p-8">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">Contact Us</h1>
           <p className="mt-2 text-slate-600 text-sm">Fields marked with <span className="text-red-600">*</span> are required.</p>
@@ -48,7 +48,7 @@ export default function ContactPage() {
           </form>
         </div>
 
-        {/* Información de contacto */}
+  {/* Contact information */}
         <div className="glass-card p-6 sm:p-8">
           <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 text-center">HSO Trade</h2>
           <ul className="mt-6 space-y-5 text-slate-700">
@@ -77,7 +77,7 @@ export default function ContactPage() {
               <MapPin className="mt-0.5 h-5 w-5 text-red-600" />
               <div>
                 <div className="font-medium">Huron Smith Oil S.A.S</div>
-                <div className="text-sm text-slate-600">06th Floor Torre Proteccion, Carrera 43a # 1-650, piso 6, oficina 652, Medellín, MEDELLIN 050021</div>
+                <div className="text-sm text-slate-600">06th Floor Torre Proteccion, Carrera 43a # 1-650, 6th floor, office 652, Medellin, MEDELLIN 050021</div>
               </div>
             </li>
             <li className="flex items-start gap-3">
