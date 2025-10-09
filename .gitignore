@@ -123,3 +123,5 @@ pnpm-debug.log*
 # Project-specific exceptions (if you want to force-add something, e.g.)
 # Use: git add -f <path>
 ##########################################################################
+# Ignore project documentation folder
+documentations/

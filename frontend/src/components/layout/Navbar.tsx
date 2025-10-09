@@ -96,9 +96,9 @@ function Navbar() {
   const ctaHref = token ? "/map" : "/login";
 
   return (
-    <header className="w-full bg-white">
+    <header className="w-full bg-transparent sticky top-0 z-50 pt-3">
       <nav
-        className="mx-auto w-11/12 max-w-7xl p-5 flex items-center justify-between"
+        className="mx-auto w-11/12 max-w-7xl glass-card glass-hover px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between"
         aria-label="Main navigation"
       >
         {/* Logo + Desktop Navigation grouped to keep links close to the brand */}
@@ -109,7 +109,7 @@ function Navbar() {
             aria-label="Go home"
           >
             <Image
-              src="/icon.png"
+              src="/Icon.png"
               alt="HSO MARINE"
               width={28}
               height={28}
@@ -181,8 +181,8 @@ function Navbar() {
 
       {/* Mobile Navigation */}
       {isMenuOpen && (
-        <div className="lg:hidden border-t border-zinc-200">
-          <div className="mx-auto w-11/12 max-w-7xl px-0 py-3 flex flex-col gap-4">
+        <div className="lg:hidden mt-2">
+          <div className="mx-auto w-11/12 max-w-7xl glass-card px-4 py-3 flex flex-col gap-4">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
