@@ -35,8 +35,8 @@ def get_feature_limit_from_plan(
 ) -> Optional[int]:
     """Fetch integer limit from Plan.features JSON for a given feature_key.
 
-    Example Plan.features structure:
-      { "due_diligence": { "max_monthly": 10 } }
+        Example Plan.features structure:
+            { "dashboards": { "max": 10 } }
     """
     plan = db.get(m.Plan, plan_id)
     if not plan or not isinstance(getattr(plan, "features", None), dict):

@@ -55,8 +55,8 @@ async def send_invitation_email(inviter_email: str, invitee_email: str, token: s
     link = _build_invitation_link(token)
     l = (lang or "en").lower()
     if l.startswith("es"):
-        subj = "Invitación segura para verificar y compartir datos financieros limitados"
-        heading = "Invitación a HSOTrade"
+        subj = "Invitación segura para verificación de identidad"
+        heading = "Invitación a HSO Marine"
         intro = ("El usuario <strong style='color:#b91c1c'>" + inviter_email + "</strong> te ha solicitado verificar tu identidad. "
                  "Al completar este proceso, podrás compartir de forma segura ciertos datos financieros de solo lectura con quien te envió esta invitación, exclusivamente para fines de verificación y revisión.")
         action_hint = "Pulsa el botón para iniciar la verificación y revisar los detalles de la solicitud. Podrás aceptar o rechazar el acceso en cualquier momento."
@@ -65,8 +65,8 @@ async def send_invitation_email(inviter_email: str, invitee_email: str, token: s
         disclaimer1 = "Si no reconoces esta solicitud ignora este correo."
         disclaimer2 = "Este mensaje es confidencial y generado automáticamente. Si no lo solicitaste ignóralo."
     else:
-        subj = "Secure invitation to verify and share limited financial data"
-        heading = "HSOTrade Secure Invitation"
+        subj = "Secure invitation to verify identity"
+        heading = "HSO Marine Secure Invitation"
         intro = ("User <strong style='color:#b91c1c'>" + inviter_email + "</strong> has requested that you verify your identity. "
                  "After completing this process you can securely share limited read‑only financial data with the requester strictly for verification and review purposes.")
         action_hint = "Click the button to start the verification and review the request details. You can accept or decline at any time."

@@ -62,7 +62,7 @@ def _compose_html(data: ContactForm) -> str:
                     <tr><td style='font-weight: bold; padding: 6px 0;'>Subscription interests:</td><td>{', '.join(data.subscription) if data.subscription else '-'}</td></tr>
                 </table>
                 <div style='margin-top: 32px; color: #888; font-size: 13px;'>
-                    <em>Sent from the Huron Smith Oil web contact form.</em>
+                    <em>Sent from the HSO Marine web contact form.</em>
                 </div>
             </div>
         </body>
@@ -74,10 +74,10 @@ def _compose_html(data: ContactForm) -> str:
 async def submit_contact(form: ContactForm, db: Session = Depends(get_db)):
     try:
         # No persistence in DB
-        subject = "HSO Trade — Contact form"
+        subject = "HSO Marine — Contact form"
         body_text = _compose_body(form)
         body_html = _compose_html(form)
-        # Enviar a EMAIL_TO (support@huronsmithoil.com) y CC si está definido
+        # Enviar a EMAIL_TO y CC si está definido
         from app.config import settings as cfg
         recipients = cfg.EMAIL_TO
         cc_list = []
@@ -95,18 +95,18 @@ async def submit_contact(form: ContactForm, db: Session = Depends(get_db)):
             to=recipients,
             cc=cc_list if cc_list else None,
             reply_to=form.email,
-            from_email=cfg.SMTP_USER  # Siempre el usuario SMTP, ej: info@hsotrade.com
+            from_email=cfg.SMTP_USER  # Siempre el usuario SMTP configurado
         )
 
         # 3) Enviar también un correo de prueba al usuario que llenó el formulario (no bloquear en caso de error)
         user_mail = {"to": str(form.email), "sent": False, "error": None}
         try:
-            user_subject = "HSO Trade — Thanks for contacting us (test)"
+            user_subject = "HSO Marine — Thanks for contacting us (test)"
             user_body_text = (
                 f"Hi {form.first_name},\n\n"
-                "Thanks for reaching out to HSO Trade. This is a test confirmation email to let you know your request was received.\n\n"
+                "Thanks for reaching out to HSO Marine. This is a test confirmation email to let you know your request was received.\n\n"
                 "We will get back to you shortly.\n\n"
-                "— HSO Trade Team"
+                "— HSO Marine Team"
             )
             await async_send_email(user_subject, {"text": user_body_text}, to=[str(form.email)])  # type: ignore[arg-type]
             user_mail["sent"] = True

@@ -9,7 +9,7 @@ from app.db.seed_db import ensure_seed_plans, ensure_seed_rbac
 def main():
     db = SessionLocal()
     ensure_seed_plans(db)   # started/pro/enterprise/premium_enterprise con 3/5/8/10
-    ensure_seed_rbac(db)    # roles (admin,user), permisos (due.create, due.view), asignaciones
+    ensure_seed_rbac(db)    # roles (admin,user); sin permisos due.* heredados
     db.close()
 
 if __name__ == "__main__":
