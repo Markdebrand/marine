@@ -29,7 +29,6 @@ class RequireAuthMiddleware(BaseHTTPMiddleware):
         ])
         # Public paths always allowed (prefix match)
         self.public_prefixes = [
-            "/",
             "/healthz",
             "/docs",
             "/openapi",
@@ -39,10 +38,16 @@ class RequireAuthMiddleware(BaseHTTPMiddleware):
             "/auth/refresh",
             "/google_login/google/authorized",
             "/auth/google/",
+            "/whoami",
         ]
 
     def _is_public(self, path: str) -> bool:
         for p in self.public_prefixes:
+            if p == "/":
+                # No tratar '/' como público general; sólo coincide exactamente
+                if path == "/":
+                    return True
+                continue
             if path == p or path.startswith(p.rstrip("/") + "/"):
                 return True
         return False

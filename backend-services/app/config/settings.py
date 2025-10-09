@@ -26,8 +26,8 @@ LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 ROOT_PATH: str = os.getenv("ROOT_PATH", "")
 
 # CORS y seguridad
-# Por defecto permitimos localhost:3000 (Next.js) en desarrollo si no se define CORS_ORIGINS
-CORS_ORIGINS: List[str] = _list_from_env("CORS_ORIGINS", "http://localhost:3000")
+# Por defecto permitimos localhost:3000 y 127.0.0.1:3000 (Next.js) en desarrollo si no se define CORS_ORIGINS
+CORS_ORIGINS: List[str] = _list_from_env("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
 ALLOWED_HOSTS: List[str] = _list_from_env("ALLOWED_HOSTS", "")
 
 # Documentación sólo visible en DEBUG
@@ -164,9 +164,10 @@ REMOTE_STATUS_CACHE_TTL: int = int(os.getenv("REMOTE_STATUS_CACHE_TTL", "15"))
 REMOTE_STATUS_FAIL_OPEN: bool = os.getenv("REMOTE_STATUS_FAIL_OPEN", "true").lower() in ("1", "true", "yes", "on")
 
 # --- Feature flags (activar/desactivar módulos según el proyecto) ---
-ENABLE_ODOO_INTEGRATION: bool = os.getenv("ENABLE_ODOO_INTEGRATION", "true").lower() in ("1", "true", "yes", "on")
-ENABLE_GOOGLE_OAUTH: bool = os.getenv("ENABLE_GOOGLE_OAUTH", "true").lower() in ("1", "true", "yes", "on")
+# Desactivamos por defecto integraciones heredadas del proyecto pasado; pueden habilitarse vía .env si se requieren
+ENABLE_ODOO_INTEGRATION: bool = os.getenv("ENABLE_ODOO_INTEGRATION", "false").lower() in ("1", "true", "yes", "on")
+ENABLE_GOOGLE_OAUTH: bool = os.getenv("ENABLE_GOOGLE_OAUTH", "false").lower() in ("1", "true", "yes", "on")
 ENABLE_CONTACT_FORMS: bool = os.getenv("ENABLE_CONTACT_FORMS", "true").lower() in ("1", "true", "yes", "on")
 ENABLE_SUPPORT_FORM: bool = os.getenv("ENABLE_SUPPORT_FORM", "true").lower() in ("1", "true", "yes", "on")
 ENABLE_RELEASES_API: bool = os.getenv("ENABLE_RELEASES_API", "true").lower() in ("1", "true", "yes", "on")
-ENABLE_RPC_API: bool = os.getenv("ENABLE_RPC_API", "true").lower() in ("1", "true", "yes", "on")
+ENABLE_RPC_API: bool = os.getenv("ENABLE_RPC_API", "false").lower() in ("1", "true", "yes", "on")

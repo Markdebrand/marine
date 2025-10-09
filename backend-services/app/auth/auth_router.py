@@ -20,6 +20,7 @@ from app.config.settings import (
     JWT_ALGORITHM,
     STATIC_AUTH_EMAIL,
     STATIC_AUTH_PASSWORD,
+    STATIC_AUTH_ENABLED,
     DEBUG,
     AUTH_COOKIES_ENABLED,
     COOKIE_DOMAIN,
@@ -110,7 +111,7 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
     except Exception:
         pass
     # Static fallback if configured
-    if STATIC_AUTH_EMAIL and STATIC_AUTH_PASSWORD and body.email.lower() == STATIC_AUTH_EMAIL.lower():
+    if STATIC_AUTH_ENABLED and STATIC_AUTH_EMAIL and STATIC_AUTH_PASSWORD and body.email.lower() == STATIC_AUTH_EMAIL.lower():
         static_ok = False
         try:
             if STATIC_AUTH_PASSWORD.startswith("$2b$"):
