@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
+import { Navbar } from "@/app/(home)/components/Navbar";
+import { Footer } from "@/app/(home)/components/Footer";
 import { Map, Search, Ship, BellRing, Database, Shield, Gauge, Network, Server, Play } from "lucide-react";
 
 export default function Home() {

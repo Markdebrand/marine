@@ -98,7 +98,7 @@ function Navbar() {
   return (
     <header className="w-full bg-transparent sticky top-0 z-50 pt-3">
       <nav
-        className="mx-auto w-11/12 max-w-7xl glass-card glass-hover px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between"
+        className="mx-auto w-11/12 max-w-7xl glass-card px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between"
         aria-label="Main navigation"
       >
         {/* Logo + Desktop Navigation grouped to keep links close to the brand */}
