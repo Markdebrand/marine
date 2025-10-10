@@ -35,12 +35,12 @@ Backend base en FastAPI reutilizable para proyectos HSOMarine. Incluye integraci
    FRONTEND_URL=http://localhost:3000
    CORS_ORIGINS=http://localhost:3000
    
-   # Base de datos (si usas MySQL)
-   MYSQL_HOST=127.0.0.1
-   MYSQL_PORT=3306
-   MYSQL_DB=hso_app
-   MYSQL_USER=root
-   MYSQL_PASSWORD=
+   # Base de datos (Postgres recomendado)
+   POSTGRES_HOST=127.0.0.1
+   POSTGRES_PORT=5432
+   POSTGRES_DB=hsomarine
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=postgres
    
    # Flags de módulos
    ENABLE_ODOO_INTEGRATION=false

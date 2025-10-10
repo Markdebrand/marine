@@ -2,8 +2,8 @@ from sqlalchemy import create_engine, event, text, MetaData
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.config.settings import (
-    MYSQL_HOST, MYSQL_PORT, MYSQL_DB, MYSQL_USER, MYSQL_PASSWORD,
-    MYSQL_POOL_SIZE, MYSQL_MAX_OVERFLOW
+    POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD,
+    POSTGRES_POOL_SIZE, POSTGRES_MAX_OVERFLOW
 )
 
 NAMING_CONVENTION = {
@@ -19,26 +19,26 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 # Normaliza password por si viene entre comillas en .env
-_PASSWORD = (MYSQL_PASSWORD or "").strip().strip("'\"")
+_PASSWORD = (POSTGRES_PASSWORD or "").strip().strip('\'\"')
 
+# Usamos psycopg (psycopg[binary]) como driver para Postgres
 _url = URL.create(
-    drivername="mysql+pymysql",
-    username=MYSQL_USER,
-    password=_PASSWORD,  # URL.create se encarga de escapar caracteres especiales (#, !, @, etc.)
-    host=MYSQL_HOST,
-    port=MYSQL_PORT,
-    database=MYSQL_DB,
-    query={"charset": "utf8mb4"},
+    drivername="postgresql+psycopg",
+    username=POSTGRES_USER,
+    password=_PASSWORD,
+    host=POSTGRES_HOST,
+    port=POSTGRES_PORT,
+    database=POSTGRES_DB,
 )
 
 engine = create_engine(
     _url,
-    pool_size=MYSQL_POOL_SIZE,
-    max_overflow=MYSQL_MAX_OVERFLOW,
+    pool_size=POSTGRES_POOL_SIZE,
+    max_overflow=POSTGRES_MAX_OVERFLOW,
     pool_pre_ping=True,
-    pool_recycle=1800,  # evita MySQL server has gone away en conexiones ociosas
     future=True,
 )
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False, future=True)
 
 def get_db():
@@ -51,12 +51,12 @@ def get_db():
 # Simple init helper
 def init_db():
     from app.db import models  # noqa: F401 ensure models imported
-    # Ajustes de sesión MySQL al conectar (zona horaria UTC)
+    # Ajustes al conectar: asegurar zona horaria UTC si la sesión lo permite
     @event.listens_for(engine, "connect")
-    def _set_sql_mode_time_zone(dbapi_connection, connection_record):  # noqa: ANN001
+    def _set_time_zone(dbapi_connection, connection_record):  # noqa: ANN001
         try:
             cursor = dbapi_connection.cursor()
-            cursor.execute("SET time_zone = '+00:00'")
+            cursor.execute("SET TIME ZONE 'UTC'")
             cursor.close()
         except Exception:
             # No bloquear si falla el SET (p.ej., permisos limitados)
@@ -71,7 +71,7 @@ def init_db():
             conn.execute(text("SELECT 1"))
     except Exception as e:  # pragma: no cover
         import logging
-        logging.getLogger(__name__).error(f"MySQL connectivity check failed: {e}")
+        logging.getLogger(__name__).error(f"Postgres connectivity check failed: {e}")
 
     # Opcional: semilla de planes/permiso si decides mantenerla en arranque
     try:

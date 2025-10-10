@@ -1,6 +1,6 @@
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.mysql import JSON
+from sqlalchemy.dialects.postgresql import JSONB as JSON
 
 # revision identifiers, used by Alembic.
 revision = '20250904_create_due_diligence_reports'

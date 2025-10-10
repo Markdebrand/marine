@@ -1,7 +1,9 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+// Por defecto usamos el proxy /api del Nginx del frontend
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(`${BASE_URL}${path}`, {
+  const base = BASE_URL.endsWith("/") ? BASE_URL.slice(0, -1) : BASE_URL;
+  const resp = await fetch(`${base}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers || {}),

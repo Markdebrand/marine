@@ -162,6 +162,3 @@ Dockerfile.*.local
 # Explicitly ignore project env files and compose files containing secrets
 variables.env.production
 variables.env.test
-docker-compose.prod.yml
-docker-compose.test.yml
-docker-compose.proxy.yml

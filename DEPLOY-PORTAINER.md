@@ -1,6 +1,6 @@
-# Despliegue en Portainer (Test y Producción)
+# Despliegue en Portainer (HSOMarine: Test y Producción)
 
-Este repo contiene `docker-compose.test.yml` y `docker-compose.prod.yml` para crear dos Stacks en Portainer: uno de pruebas (staging) y otro de producción.
+Este repo ya está adaptado a HSOMarine y a Postgres. Contiene `docker-compose.test.yml` y `docker-compose.prod.yml` para crear dos Stacks en Portainer: uno de pruebas (staging) y otro de producción.
 
 ## Requisitos
 
@@ -10,9 +10,9 @@ Este repo contiene `docker-compose.test.yml` y `docker-compose.prod.yml` para cr
 
 ## Arquitectura
 
-- `frontend`: Nginx sirviendo el build de Vite. Expone puerto 80 del contenedor y se publica en el host (80 prod, 8080 test por defecto en compose).
+- `frontend`: Nginx sirviendo el build de Next.js. Expone puerto 80 del contenedor y se publica en el host (80 prod vía proxy externo, 8080 test por defecto en compose).
 - `backend`: FastAPI con Gunicorn/Uvicorn en `:8000` dentro de la red interna `app`.
-- `db`: MySQL 8 con autenticación nativa y charset utf8mb4. Volumen persistente por entorno.
+- `db`: Postgres 16 con volumen persistente por entorno.
 - Nginx del frontend hace proxy a `backend` en `/api/` (ver `frontend/nginx.conf.frontend`).
 
 ## Pasos en Portainer
@@ -29,20 +29,19 @@ Este repo contiene `docker-compose.test.yml` y `docker-compose.prod.yml` para cr
 
 - Repite el proceso con `docker-compose.prod.yml`.
 - Usa las variables de `variables.env.production`.
-- Asegúrate de que el puerto 80 del host esté libre si vas a publicar el frontend en 80.
+- Asegúrate de que el puerto 80 del host esté libre si vas a publicar el frontend en 80 (o usa un proxy como Caddy/Traefik para TLS).
 
 ## Variables clave
 
-- DB: `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`.
+- DB: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`.
 - App: `JWT_SECRET_KEY`, `JWT_AUDIENCE`, `ALLOWED_HOSTS`, `CORS_ORIGINS`, `FRONTEND_URL`.
-- Integraciones: `ODOO_*`, `MS_TRANSLATOR_*`, SMTP.
-
-Nota: Las integraciones `PLAID_*` y `DUE_N8N_*` fueron marcadas como legacy y se han removido de la configuración por defecto de HSO Marine. Si necesitas reintroducir Plaid o un workflow de due-diligence con n8n, añade las variables y configuración correspondientes manualmente.
+- Integraciones: `ODOO_*`, `PLAID_*`, `MS_TRANSLATOR_*`, `DUE_N8N_*`, SMTP.
 
 Notas:
 - En `CORS_ORIGINS` corrige URLs inválidas si las ves duplicadas (p.ej. `http://http://...`).
 - El backend usa `ROOT_PATH` vacío porque Nginx ya publica `/api/` hacia el backend.
 - La app crea tablas automáticamente al iniciar. Puedes ejecutar seeds/usuarios usando el CLI si fuese necesario.
+- Si necesitas exponer la DB a una IP concreta, edita el mapeo de puertos (5432) en el compose o usa túnel SSH.
 
 ## Semillas y usuario admin (opcional)
 

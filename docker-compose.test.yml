@@ -1,0 +1,103 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg_data_test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    ports:
+      - "127.0.0.1:5433:5432"  # Mapeo sólo local para entorno de pruebas
+    networks:
+      - app
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      DB_PROFILE: prod
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+
+      DEBUG: ${DEBUG}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+
+      ODOO_URL: ${ODOO_URL}
+      ODOO_DB: ${ODOO_DB}
+      ODOO_USER: ${ODOO_USER}
+      ODOO_PASSWORD: ${ODOO_PASSWORD}
+
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID}
+      PLAID_SECRET: ${PLAID_SECRET}
+      PLAID_ENV: ${PLAID_ENV}
+      PLAID_PRODUCTS: ${PLAID_PRODUCTS}
+      PLAID_COUNTRY_CODES: ${PLAID_COUNTRY_CODES}
+      PLAID_REDIRECT_URI: ${PLAID_REDIRECT_URI}
+
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+
+      FRONTEND_URL: ${FRONTEND_URL}
+
+      EMAIL_SENDER: ${EMAIL_SENDER}
+      EMAIL_TO: ${EMAIL_TO}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_TLS: ${SMTP_TLS}
+      SMTP_SSL: ${SMTP_SSL}
+
+      DUE_N8N_WEBHOOK_URL: ${DUE_N8N_WEBHOOK_URL}
+      DUE_N8N_TIMEOUT: ${DUE_N8N_TIMEOUT}
+
+      MS_TRANSLATOR_KEY: ${MS_TRANSLATOR_KEY}
+      MS_TRANSLATOR_REGION: ${MS_TRANSLATOR_REGION}
+    depends_on:
+      - db
+    networks:
+      - app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      # Exponer otra puerta en host para pruebas
+      - "8080:80"
+    networks:
+      app:
+        aliases:
+          - frontend-test
+
+networks:
+  app:
+    name: hsomarine-test_app
+
+volumes:
+  pg_data_test: {}

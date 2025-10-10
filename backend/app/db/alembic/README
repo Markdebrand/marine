@@ -1,1 +1,27 @@
-Alembic migrations directory (initialized by AI). Add env.py and versions/ folder.
+Alembic migrations directory. Uso rápido:
+
+- El archivo `alembic.ini` usa la variable de entorno `ALEMBIC_DATABASE_URL` si está definida.
+- Por defecto Alembic tomará la URL de conexión definida en `app.db.database`.
+
+Pasos recomendados para desarrollo:
+
+1) Exportar la URL (ejemplo):
+
+	export ALEMBIC_DATABASE_URL="postgresql+psycopg://postgres:password@localhost:5432/hsomarine"
+
+2) Generar una nueva revisión (si modificas modelos):
+
+	alembic revision --autogenerate -m "describe change"
+
+3) Aplicar migraciones:
+
+	alembic upgrade head
+
+Notas PostGIS / Timescale (manuales):
+
+- Para habilitar geometrías y hypertables ejecutar en psql:
+	 CREATE EXTENSION IF NOT EXISTS postgis;
+	 -- convertir/alterar columnas a geometry(Point,4326) vía ALTER TABLE
+	 -- crear hypertable (TimescaleDB): SELECT create_hypertable('vessel_state', 'ts');
+
+Usar con precaución en producción. Hacer backup antes de aplicar cambios en esquema.

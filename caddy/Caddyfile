@@ -6,11 +6,11 @@
 # Producción
 hsomarine.com, www.hsomarine.com {
   encode gzip
-  reverse_proxy hsomarine-production-frontend-1:80
+  reverse_proxy frontend-prod:80
 }
 
-# Test
-developmentapi.hsomarine.com {
+# Test (ajusta el dominio si usas otro subdominio)
+devapi.hsomarine.com, developmentapi.hsomarine.com {
   encode gzip
-  reverse_proxy hsomarine-test-frontend-1:80
+  reverse_proxy frontend-test:80
 }

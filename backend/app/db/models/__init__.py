@@ -20,6 +20,17 @@ from .enums import (
 from .release import Release, ReleaseSection
 from .user_preferences import UserPreference
 
+# HSOMarine domain models
+from .res_user import ResUser
+from .marine_port import MarinePort
+from .marine_vessel import MarineVessel
+from .vessel_state import VesselState
+from .vessel_snapshot import VesselSnapshot
+from .marine_watchlist import MarineWatchlist
+from .marine_alert import MarineAlert
+from .marine_provider_contract import MarineProviderContract
+from .marine_audit import MarineAudit
+
 __all__ = [
     "User",
     "Plan",
@@ -40,4 +51,14 @@ __all__ = [
     "Release",
     "ReleaseSection",
     "UserPreference",
+    # HSOMarine
+    "ResUser",
+    "MarinePort",
+    "MarineVessel",
+    "VesselState",
+    "VesselSnapshot",
+    "MarineWatchlist",
+    "MarineAlert",
+    "MarineProviderContract",
+    "MarineAudit",
 ]

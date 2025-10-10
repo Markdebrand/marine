@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Export estático para servir con Nginx
+  output: "export",
+  images: { unoptimized: true },
 };
 
 export default nextConfig;
