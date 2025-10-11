@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Protected } from "@/components/auth/Protected";
-import LiveMap from "@/components/LiveMap";
 import { Activity, Bell, ListChecks, Map as MapIcon, Settings, BookMarked, Search, PlusCircle } from "lucide-react";
 
 type Health = "loading" | "ok" | "warn" | "down";
@@ -28,16 +27,26 @@ export default function DashboardPage() {
 
   return (
     <Protected>
-      <main className="container mx-auto px-6 sm:px-8 lg:px-12 py-8">
+      <main className="py-2">
         {/* Header */}
-        <header>
-          <h1 className="text-3xl font-semibold text-slate-900">Dashboard</h1>
-          <p className="text-slate-600 mt-1">Welcome back. Choose where to start.</p>
-          <div className="mt-4 h-px w-full bg-slate-200" />
+        <header className="py-6">
+          <div className="glass-card glass-hover p-6 relative">
+            <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[rgba(239,68,68,0.12)] blur-[40px]" />
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-semibold text-slate-900">Dashboard</h1>
+                <p className="text-slate-600 mt-1">Welcome back. Choose where to start.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <a href="/map" className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-white text-sm font-medium shadow hover:bg-red-700">Open live map</a>
+                <a href="/services" className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-slate-800 text-sm font-medium ring-1 ring-slate-200 hover:bg-slate-50">Services</a>
+              </div>
+            </div>
+          </div>
         </header>
 
         {/* Feature cards (3) */}
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
+        <section className="mt-6 grid gap-6 md:grid-cols-3">
           <FeatureCard
             title="Live Map"
             description="See real-time AIS positions."
@@ -64,7 +73,7 @@ export default function DashboardPage() {
         {/* System health (single card) */}
         <section className="mt-8">
           <h2 className="text-slate-800 font-semibold mb-3">System health</h2>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="glass-card p-5">
             <div className="text-slate-900 font-semibold">System health</div>
             <div className="mt-2 text-sm text-slate-600 flex items-center gap-2">
               {healthError ? (
@@ -80,9 +89,9 @@ export default function DashboardPage() {
         </section>
 
         {/* Quick actions (3 cards) */}
-        <section className="mt-8">
+  <section className="mt-8">
           <h2 className="text-slate-800 font-semibold mb-3">Quick actions</h2>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-3">
             <ActionCard
               icon={<Search className="h-5 w-5 text-red-600" />}
               title="Search a vessel"
@@ -134,15 +143,18 @@ function MetricTile({ icon, label, value }: { icon: React.ReactNode; label: stri
 
 function FeatureCard({ title, description, href, cta, icon }: { title: string; description: string; href: string; cta: string; icon: React.ReactNode }) {
   return (
-    <a href={href} className="block rounded-xl border border-slate-200 bg-white p-5 hover:shadow-sm transition-shadow">
-      <div className="flex items-start justify-between">
+    <a href={href} className="block glass-card glass-hover p-6">
+      <div className="relative flex items-start justify-between">
+        <div className="absolute -right-3 -top-3 h-10 w-10 rounded-full bg-red-100" />
         <div>
           <div className="text-slate-900 font-semibold">{title}</div>
           <p className="text-sm text-slate-600 mt-1">{description}</p>
         </div>
         <div className="text-slate-400">{icon}</div>
       </div>
-      <div className="mt-4 text-sm text-red-600 inline-flex items-center gap-1">{cta} <span aria-hidden>→</span></div>
+      <div className="mt-4 inline-flex items-center gap-1 text-sm text-red-600 px-3 py-1.5 rounded-md border border-red-200 hover:bg-red-50">
+        {cta} <span aria-hidden>→</span>
+      </div>
     </a>
   );
 }

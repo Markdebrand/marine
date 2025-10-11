@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "ol/ol.css";
 
 :root {
   --background: #ffffff;
@@ -101,6 +102,12 @@ body {
 }
 @media (min-width: 640px) {
   .section-surface { padding: 1.75rem; }
+}
+
+/* Improve visiblity of OpenSeaMap overlay at low zooms */
+.seamarks-layer canvas, .seamarks-layer img {
+  image-rendering: pixelated;         /* keep icons crisp when upscaled */
+  filter: contrast(1.1) saturate(1.05);
 }
 @media (min-width: 1024px) {
   .section-surface { padding: 2rem; }

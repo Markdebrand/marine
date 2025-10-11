@@ -1,12 +1,21 @@
+import { Suspense } from "react";
 import { Protected } from "@/components/auth/Protected";
+import OpenLayersMap from "@/components/OpenLayersMap";
 
 export default function MapPage() {
   return (
-    <Protected>
-      <main className="container mx-auto p-6">
-        <h1 className="text-2xl font-semibold">Map</h1>
-        <p className="text-zinc-600 mt-2">Private view for the vessel map.</p>
-      </main>
-    </Protected>
+    <main className="min-h-[100vh] py-6">
+        <section className="section-surface">
+        <Suspense
+          fallback={
+            <div className="w-full rounded-lg overflow-hidden border border-slate-200" style={{ height: 640 }} />
+          }
+        >
+          <Protected>
+            <OpenLayersMap height={640} seamarkZoomOffset={3} />
+          </Protected>
+        </Suspense>
+      </section>
+    </main>
   );
 }
