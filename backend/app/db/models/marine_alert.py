@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Boolean, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, func
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql import expression
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -12,8 +14,8 @@ class MarineAlert(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("res_user.id", ondelete="CASCADE"), nullable=False, index=True)
     type = Column(String(64), nullable=False)  # geofence | port | other
-    params_json = Column(JSON, nullable=True)
-    active = Column(Boolean, nullable=False, default=True)
+    params_json = Column(postgresql.JSONB, nullable=True)
+    active = Column(Boolean, nullable=False, server_default=expression.true())
     last_triggered = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

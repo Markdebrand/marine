@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, String, DateTime, func, JSON
+from sqlalchemy import Column, Integer, String, DateTime, func
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -15,7 +16,7 @@ class MarineVessel(Base):
     name = Column(String(255), nullable=True)
     type = Column(String(64), nullable=True)
     flag = Column(String(64), nullable=True)
-    ext_refs = Column(JSON, nullable=True)
+    ext_refs = Column(postgresql.JSONB, nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     watchlist_items = relationship("MarineWatchlist", back_populates="vessel")
