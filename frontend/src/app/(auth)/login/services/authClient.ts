@@ -1,9 +1,14 @@
 import type { AuthCredentials, AuthResponse } from "../types/auth";
+import { apiFetch } from "@/lib/api";
 
+// Real login against backend
 export async function login(credentials: AuthCredentials): Promise<AuthResponse> {
-  const { email, password } = credentials;
-  await new Promise((r) => setTimeout(r, 400));
-  const isValid = email === "admin@example.com" && password === "admin123";
-  if (!isValid) throw new Error("Invalid credentials");
-  return { token: "static-dev-token", user: { email } };
+  const res = await apiFetch<{ access_token: string; refresh_token?: string }>(
+    `/auth/login`,
+    {
+      method: "POST",
+      body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+    }
+  );
+  return { token: res.access_token, user: { email: credentials.email } };
 }

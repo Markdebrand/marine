@@ -16,7 +16,6 @@ from app.db.database import init_db
 from app.utils.exception_handlers import add_global_exception_handler
 
 def add_middlewares(app):
-    from fastapi.middleware.cors import CORSMiddleware
     from starlette.middleware.trustedhost import TrustedHostMiddleware
     from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
     from starlette.middleware.gzip import GZipMiddleware
@@ -25,15 +24,12 @@ def add_middlewares(app):
     from app.core.middleware.auth_middleware import AuthContextMiddleware
     from app.core.middleware.require_auth_middleware import RequireAuthMiddleware
     from app.core.middleware.app_switch_middleware import AppSwitchMiddleware
-    if CORS_ORIGINS:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=CORS_ORIGINS,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-    if ALLOWED_HOSTS:
+    # NOTA: El orden de adición es importante en Starlette; el último añadido es el más externo.
+    # Para que CORS envuelva TODAS las respuestas (incluyendo errores tempranos de otros middlewares
+    # y preflight OPTIONS), añadiremos CORSMiddleware al final.
+    # TrustedHost solo en entornos no-DEBUG para evitar problemas en desarrollo
+    from app.config.settings import DEBUG
+    if ALLOWED_HOSTS and not DEBUG:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
     app.add_middleware(GZipMiddleware, minimum_size=500)
@@ -47,6 +43,16 @@ def add_middlewares(app):
     app.add_middleware(RequireAuthMiddleware)
     # Auditoría privada de requests
     app.add_middleware(AuditMiddleware)
+    # Finalmente, CORS como el más externo para asegurar headers en todas las respuestas
+    if CORS_ORIGINS:
+        from fastapi.middleware.cors import CORSMiddleware
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=CORS_ORIGINS,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
 def add_routers(app):
     # Router centralizado
