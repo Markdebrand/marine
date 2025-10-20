@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
 const NAV_LINKS = [
@@ -92,8 +92,21 @@ function IconClose({ className = "w-7 h-7" }: { className?: string }) {
 function Navbar() {
   const { token } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
-  const ctaHref = token ? "/map" : "/login";
+  const router = useRouter();
+  // Evitar mismatch SSR/CSR: mantener href estable en SSR y cambiar tras montar
+  const ctaHref = mounted && token ? "/map" : "/login";
+
+  // Prefetch common routes to speed up header navigation
+  useEffect(() => {
+    try {
+      NAV_LINKS.forEach((l) => router.prefetch(l.href));
+    } catch {}
+  }, [router]);
+
+  // Marcar como montado para poder cambiar CTA sin causar hydration error
+  useEffect(() => setMounted(true), []);
 
   return (
     <header className="w-full bg-transparent sticky top-0 z-50 pt-3">
@@ -123,6 +136,8 @@ function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch
+                onMouseEnter={() => { try { router.prefetch(link.href); } catch {} }}
                 className={`transition-colors hover:text-red-600 ${
                   pathname === link.href ||
                   (link.href !== "/" && pathname.startsWith(link.href))
@@ -187,6 +202,8 @@ function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch
+                onMouseEnter={() => { try { router.prefetch(link.href); } catch {} }}
                 className={`transition-colors hover:text-red-600 ${
                   pathname === link.href ||
                   (link.href !== "/" && pathname.startsWith(link.href))

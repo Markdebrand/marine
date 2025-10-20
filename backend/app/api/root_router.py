@@ -87,3 +87,11 @@ except Exception:
 	preferences_router = None  # type: ignore
 if 'preferences_router' in globals() and preferences_router:
 	router.include_router(preferences_router)
+
+# AIS test endpoints (dev/testing)
+try:
+	from app.api.ais_router import router as ais_router
+except Exception:
+	ais_router = None  # pragma: no cover - optional in some envs
+if 'ais_router' in globals() and ais_router:
+	router.include_router(ais_router)
