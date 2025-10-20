@@ -9,6 +9,13 @@ Backend base en FastAPI reutilizable para proyectos HSOMarine. Incluye integraci
 - Preferencias de usuario y releases (opcional)
 - Observabilidad: `/metrics`, health, logging JSON opcional
 - CORS listo para Next.js (localhost:3000 por defecto)
+ - Soporte Socket.IO para reenvío AISStream en `/socket.io`
+
+Performance / despliegue
+- Singleton bridge: si configuras `REDIS_URL`, el bridge AISStream intentará tomar un lock en Redis (clave `AISSTREAM_SINGLETON_LOCK_KEY`) para evitar que múltiples workers abran conexiones al feed.
+- Batching: puedes agrupar posiciones en el backend configurando `AISSTREAM_BATCH_MS` (ms) para emitir `ais_position_batch` con arrays de posiciones en lugar de eventos individuales.
+- Filtros: usa `AISSTREAM_BOUNDING_BOXES` y `AISSTREAM_FILTER_MMSI` / `AISSTREAM_FILTER_TYPES` en `.env` para reducir el volumen de datos.
+
 
 ## Requisitos
 - Python 3.10+
@@ -62,7 +69,7 @@ Backend base en FastAPI reutilizable para proyectos HSOMarine. Incluye integraci
 Desde la raíz del backend:
 
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:asgi --reload
 ```
 
 API en `http://localhost:8000`. Documentación (`/docs`) visible cuando `DEBUG=true`.
@@ -158,3 +165,28 @@ Comportamiento:
 - Remitente: `SMTP_USER`/`EMAIL_SENDER`.
 - Destinatarios: `EMAIL_TO` (lista separada por comas).
 - Se puede enviar acuse al remitente (si el adaptador lo permite); fallos en ese envío no bloquean la operación principal.
+
+## Simulador AIS por Socket.IO
+
+Se incluye un simulador que emite cada ~5s una lista de barcos falsos a todos los clientes Socket.IO conectados.
+
+- Ruta Socket.IO: `/socket.io`
+- Evento: `ais_update`
+- Payload:
+   - `vessels`: array de objetos `{ id, lat, lon, heading, speed }`
+
+Uso en React con `socket.io-client`:
+
+```ts
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:8000', { path: '/socket.io' });
+
+socket.on('ais_update', (data) => {
+   console.log('AIS update', data.vessels.length);
+});
+```
+
+Notas:
+- Ajusta CORS en `.env` con `CORS_ORIGINS` si conectas desde otro dominio/puerto.
+-- Si usas simulador local, sus parámetros estaban en `app/realtime/ais_simulator.py` (ahora eliminada). El flujo por defecto usa AISStream.

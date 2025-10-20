@@ -102,14 +102,15 @@ services:
       app:
         aliases:
           - frontend-prod
-      proxy-global: {}
+      proxy-global:
+        aliases:
+          - hsomarine-prod-frontend
 
 networks:
   app:
     name: hsomarine-production_app
-
-proxy-global:
-  external: true
+  proxy-global:
+    external: true
 
 volumes:
   pg_data: {}

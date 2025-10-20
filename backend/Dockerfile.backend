@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 8000
 
 # Define el comando para ejecutar tu aplicación Gunicorn/Uvicorn.
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-c", "gunicorn.conf.py", "app.main:app"]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-c", "gunicorn.conf.py", "app.main:asgi"]

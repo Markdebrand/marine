@@ -14,6 +14,11 @@ from app.config.settings import (
 from app.utils.logging_config import setup_logging
 from app.db.database import init_db
 from app.utils.exception_handlers import add_global_exception_handler
+import socketio
+from app.config.settings import AISSTREAM_ENABLED, AISSTREAM_API_KEY, AISSTREAM_SINGLETON_LOCK_KEY, AISSTREAM_SINGLETON_LOCK_TTL
+from redis import Redis
+import time
+from app.integrations.aisstream.service import AISBridgeService
 
 def add_middlewares(app):
     from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -67,12 +72,46 @@ def add_dispatcher(app):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging(LOG_LEVEL)
+    # Crear Socket.IO server ASGI y adjuntar a app.state
+    sio_server = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+    sio_asgi = socketio.ASGIApp(sio_server, socketio_path="/socket.io")
+    app.state.sio_server = sio_server
+    app.state.sio_asgi = sio_asgi
     try:
         init_db()
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"DB init failed: {e}")
+    # Si AISStream está habilitado y tiene API key, usamos AISStream en lugar del simulador local
+    bridge: AISBridgeService | None = None
+    lock_owner = False
+    redis_client = None
+    try:
+        redis_url = getattr(__import__("app.config.settings"), "REDIS_URL", None)
+    except Exception:
+        redis_url = None
+    if AISSTREAM_ENABLED and AISSTREAM_API_KEY:
+        # Si hay Redis configurado, intentamos tomar un lock para que SOLO un worker cree la conexión
+        if redis_url:
+            try:
+                redis_client = Redis.from_url(redis_url)
+                # SETNX con expiración
+                lock_key = AISSTREAM_SINGLETON_LOCK_KEY
+                now = int(time.time())
+                if redis_client.set(lock_key, now, nx=True, ex=AISSTREAM_SINGLETON_LOCK_TTL):
+                    lock_owner = True
+            except Exception:
+                # Si falla Redis, continuamos sin singleton
+                redis_client = None
+        if not redis_client or lock_owner:
+            bridge = AISBridgeService(sio_server, AISSTREAM_API_KEY)
+            await bridge.start()
     yield
+    # Apagado ordenado
+    if bridge is not None:
+        await bridge.stop()
+    if bridge is not None:
+        await bridge.stop()
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -90,3 +129,29 @@ def create_app() -> FastAPI:
     return app
 
 app = create_app()
+
+# Montar la app de Socket.IO bajo el mismo servidor ASGI en la ruta /socket.io
+# Nota: ASGIApp de socketio funciona como sub-aplicación; FastAPI manejará el resto.
+try:
+    # No imports extra necesarios; usamos ASGI routing manual
+
+    # Creamos un wrapper ASGI que enruta /socket.io a sio_asgi y el resto a FastAPI
+    # Para entornos que lo necesiten (uvicorn acepta una sola app), exponemos una app compuesta
+    class RootASGI:
+        def __init__(self, fastapi_app: FastAPI):
+            self.fastapi_app = fastapi_app
+
+        async def __call__(self, scope, receive, send):  # noqa: ANN001
+            if scope["type"] in ("http", "websocket") and scope.get("path", "").startswith("/socket.io"):
+                # Despachar a Socket.IO
+                sio_asgi = getattr(self.fastapi_app.state, "sio_asgi", None)
+                if sio_asgi is not None:
+                    await sio_asgi(scope, receive, send)
+                    return
+            # Fallback a FastAPI
+            await self.fastapi_app(scope, receive, send)
+
+    asgi = RootASGI(app)
+except Exception:
+    # Si por alguna razón falla, al menos la app principal sigue disponible
+    asgi = app

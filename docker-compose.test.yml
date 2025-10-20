@@ -94,10 +94,15 @@ services:
       app:
         aliases:
           - frontend-test
+      proxy-global:
+        aliases:
+          - hsomarine-test-frontend
 
 networks:
   app:
     name: hsomarine-test_app
+  proxy-global:
+    external: true
 
 volumes:
   pg_data_test: {}

@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 import os
 from typing import List
 from pathlib import Path
+import json
 
 # Carga .env desde la raíz del backend aunque el cwd sea distinto (mod_wsgi)
 _HERE = Path(__file__).resolve()
@@ -78,13 +79,20 @@ LOCAL_POSTGRES_POOL_SIZE = os.getenv("LOCAL_POSTGRES_POOL_SIZE")
 LOCAL_POSTGRES_MAX_OVERFLOW = os.getenv("LOCAL_POSTGRES_MAX_OVERFLOW")
 
 if DB_PROFILE == "local":
-	if LOCAL_POSTGRES_HOST: POSTGRES_HOST = LOCAL_POSTGRES_HOST
-	if LOCAL_POSTGRES_PORT: POSTGRES_PORT = int(LOCAL_POSTGRES_PORT)
-	if LOCAL_POSTGRES_DB: POSTGRES_DB = LOCAL_POSTGRES_DB
-	if LOCAL_POSTGRES_USER: POSTGRES_USER = LOCAL_POSTGRES_USER
-	if LOCAL_POSTGRES_PASSWORD: POSTGRES_PASSWORD = LOCAL_POSTGRES_PASSWORD
-	if LOCAL_POSTGRES_POOL_SIZE: POSTGRES_POOL_SIZE = int(LOCAL_POSTGRES_POOL_SIZE)
-	if LOCAL_POSTGRES_MAX_OVERFLOW: POSTGRES_MAX_OVERFLOW = int(LOCAL_POSTGRES_MAX_OVERFLOW)
+	if LOCAL_POSTGRES_HOST:
+		POSTGRES_HOST = LOCAL_POSTGRES_HOST
+	if LOCAL_POSTGRES_PORT:
+		POSTGRES_PORT = int(LOCAL_POSTGRES_PORT)
+	if LOCAL_POSTGRES_DB:
+		POSTGRES_DB = LOCAL_POSTGRES_DB
+	if LOCAL_POSTGRES_USER:
+		POSTGRES_USER = LOCAL_POSTGRES_USER
+	if LOCAL_POSTGRES_PASSWORD:
+		POSTGRES_PASSWORD = LOCAL_POSTGRES_PASSWORD
+	if LOCAL_POSTGRES_POOL_SIZE:
+		POSTGRES_POOL_SIZE = int(LOCAL_POSTGRES_POOL_SIZE)
+	if LOCAL_POSTGRES_MAX_OVERFLOW:
+		POSTGRES_MAX_OVERFLOW = int(LOCAL_POSTGRES_MAX_OVERFLOW)
 
 # --- JWT ---
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me")
@@ -170,3 +178,33 @@ ENABLE_CONTACT_FORMS: bool = os.getenv("ENABLE_CONTACT_FORMS", "true").lower() i
 ENABLE_SUPPORT_FORM: bool = os.getenv("ENABLE_SUPPORT_FORM", "true").lower() in ("1", "true", "yes", "on")
 ENABLE_RELEASES_API: bool = os.getenv("ENABLE_RELEASES_API", "true").lower() in ("1", "true", "yes", "on")
 ENABLE_RPC_API: bool = os.getenv("ENABLE_RPC_API", "false").lower() in ("1", "true", "yes", "on")
+
+# --- AIS Simulator (Socket.IO) ---
+# Activa el simulador en desarrollo por defecto; en producción queda desactivado salvo que se fuerce.
+AISSTREAM_ENABLED: bool = os.getenv("AISSTREAM_ENABLED", "true").lower() in ("1", "true", "yes", "on")
+AISSTREAM_API_KEY: str | None = os.getenv("AISSTREAM_API_KEY")
+
+# Opciones adicionales para AISStream
+def _parse_bbox_env(name: str):
+	raw = os.getenv(name, "") or ""
+	if not raw:
+		return None
+	try:
+		val = json.loads(raw)
+		# Expecting [[min_lat,min_lon],[max_lat,max_lon]] or similar
+		return val
+	except Exception:
+		# Fallback: comma-separated min_lat,min_lon,max_lat,max_lon
+		parts = [p.strip() for p in raw.split(",") if p.strip()]
+		if len(parts) == 4:
+			return [[float(parts[0]), float(parts[1])], [float(parts[2]), float(parts[3])]]
+	return None
+
+AISSTREAM_BOUNDING_BOXES = _parse_bbox_env("AISSTREAM_BOUNDING_BOXES") or [[-90.0, -180.0], [90.0, 180.0]]
+AISSTREAM_FILTER_MMSI = [x.strip() for x in (os.getenv("AISSTREAM_FILTER_MMSI", "") or "").split(",") if x.strip()]
+AISSTREAM_FILTER_TYPES = [x.strip() for x in (os.getenv("AISSTREAM_FILTER_TYPES", "PositionReport") or "").split(",") if x.strip()]
+AISSTREAM_BATCH_MS: int = int(os.getenv("AISSTREAM_BATCH_MS", "0"))
+
+# Singleton lock (opcional) para evitar múltiples trabajadores conectando al feed.
+AISSTREAM_SINGLETON_LOCK_KEY: str = os.getenv("AISSTREAM_SINGLETON_LOCK_KEY", "aisstream_bridge_lock")
+AISSTREAM_SINGLETON_LOCK_TTL: int = int(os.getenv("AISSTREAM_SINGLETON_LOCK_TTL", "60"))
