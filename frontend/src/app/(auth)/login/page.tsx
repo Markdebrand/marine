@@ -10,8 +10,10 @@ export default function LoginPage() {
         <div
           className="h-full w-full bg-cover bg-center"
           style={{
+            // Usar imagen local si está presente en public/images/login-hero.jpg
+            // y mantener un fallback al URL remoto en caso de que falte el asset.
             backgroundImage:
-              "url(https://unsplash.com/photos/jOqJbvo1P9g/download?force=true&w=2070&q=80)",
+              "url('/images/loginvessel.webp')"
           }}
         />
         {/* Overlay oscuro para atenuar la imagen */}
