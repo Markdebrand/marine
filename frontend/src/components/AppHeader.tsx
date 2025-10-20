@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 export default function AppHeader() {
   const pathname = usePathname();
+  const isMap = pathname === "/map" || pathname?.startsWith("/map/");
   const link = (href: string, label: string) => {
     const active = pathname === href;
     return (
@@ -17,10 +18,14 @@ export default function AppHeader() {
     );
   };
 
+  const containerClass = isMap
+    ? 'fixed inset-x-6 top-4 z-[100] pointer-events-auto'
+    : 'sticky top-4 z-50';
+
   return (
-    <div className="sticky top-4 z-50">
+    <div className={containerClass}>
       <div className="mx-auto max-w-7xl px-6">
-        <div className="glass-card flex items-center justify-between gap-4 p-3 border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)]">
+        <div className="glass-card flex items-center justify-between gap-4 p-3 border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
           <div className="flex items-center gap-3">
             <Image src="/Icon.png" alt="MarinaLive" width={28} height={28} className="h-7 w-7" />
             <span className="font-semibold text-slate-900">HSO Marine</span>
