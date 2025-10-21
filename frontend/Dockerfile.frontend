@@ -1,5 +1,5 @@
 # ---- Etapa 1: Compilación del frontend (Build Stage) ----
-FROM node:20-alpine AS build-stage
+FROM node:20-bullseye-slim AS build-stage
 
 WORKDIR /app
 
