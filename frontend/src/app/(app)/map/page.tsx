@@ -1,3 +1,4 @@
+"use client";
 import { Suspense } from "react";
 import { Protected } from "@/components/auth/Protected";
 import AisLiveMap from "@/app/(app)/map/components/ais/AisLiveMap";
