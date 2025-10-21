@@ -96,9 +96,6 @@ services:
       dockerfile: Dockerfile.frontend
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-        NEXT_PUBLIC_AISSTREAM_KEY: ${NEXT_PUBLIC_AISSTREAM_KEY}
-        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
-        NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK: ${NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK}
     restart: unless-stopped
     depends_on:
       - backend

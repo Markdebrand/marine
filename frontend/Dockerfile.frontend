@@ -35,9 +35,9 @@ ENV NODE_OPTIONS=--max-old-space-size=4096
 ENV NEXT_TELEMETRY_DISABLED=1 \
 	CI=1
 
-# Compila usando la versión de Next del proyecto para evitar desajustes de versión
-# (usa el script definido en package.json)
-RUN npm run build
+# Compila y genera la salida estática con Next nativo (SWC nativo habilitado por defecto)
+# Usamos `npx next build` para evitar cualquier wrapper custom del package.json.
+RUN npx --yes next@15 build
 
 # ---- Etapa 2: Servir con Nginx (Production Stage) ----
 FROM nginx:1.27
