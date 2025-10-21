@@ -90,6 +90,7 @@ services:
       - app
 
   frontend:
+    container_name: hsomarine-prod-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile.frontend

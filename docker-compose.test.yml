@@ -79,6 +79,7 @@ services:
       - app
 
   frontend:
+    container_name: hsomarine-test-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile.frontend
