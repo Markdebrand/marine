@@ -32,7 +32,7 @@ RUN npx next build && \
 	( [ -d "out" ] || npx next export )
 
 # ---- Etapa 2: Servir con Nginx (Production Stage) ----
-FROM nginx:1.27-slim
+FROM nginx:1.27
 
 # Copia los archivos estáticos exportados de la etapa anterior
 COPY --from=build-stage /app/out /usr/share/nginx/html
