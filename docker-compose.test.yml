@@ -87,6 +87,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    expose:
+      - "80"
     ports:
       # Exponer otra puerta en host para pruebas
       - "8081:80"
