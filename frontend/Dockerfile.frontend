@@ -12,8 +12,8 @@ RUN apt-get update \
 	&& apt-get install -y --no-install-recommends python3 build-essential ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
 
-# Instala las dependencias de npm (use package-lock.json si existe)
-RUN npm ci --silent
+# Instala las dependencias de npm (incluye devDependencies para el build)
+RUN npm ci --silent --include=dev
 
 # Copia el resto del código del frontend
 COPY . .
@@ -28,10 +28,11 @@ ENV NODE_OPTIONS=--max-old-space-size=4096
 # Compila (sin usar el script que fuerza Turbopack) y genera la salida estática
 # Usamos `npx next build` aquí para evitar problemas con `--turbopack` en entornos
 # limitados durante la construcción de la imagen.
-RUN npx next build
+RUN npx next build && \
+	( [ -d "out" ] || npx next export )
 
 # ---- Etapa 2: Servir con Nginx (Production Stage) ----
-FROM nginx:1.27-alpine
+FROM nginx:1.27-slim
 
 # Copia los archivos estáticos exportados de la etapa anterior
 COPY --from=build-stage /app/out /usr/share/nginx/html
