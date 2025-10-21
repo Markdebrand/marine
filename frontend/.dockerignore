@@ -9,6 +9,9 @@ yarn-error.log*
 .gitignore
 Dockerfile.frontend
 
+# No incluir variables locales en el contexto de build
+.env*
+
 # OS / IDE
 .DS_Store
 .vscode
