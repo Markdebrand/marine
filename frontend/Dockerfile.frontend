@@ -33,8 +33,8 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 # Compila (sin usar el script que fuerza Turbopack) y genera la salida estática
 # Usamos `npx next build` aquí para evitar problemas con `--turbopack` en entornos
 # limitados durante la construcción de la imagen.
-RUN npx next build
-RUN test -d out || npx next export
+RUN npm run build
+RUN test -d out || ./node_modules/.bin/next export
 
 # ---- Etapa 2: Servir con Nginx (Production Stage) ----
 FROM nginx:1.27
