@@ -16,8 +16,13 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
-# Compila y exporta estático para servir con Nginx
-RUN npm run build && npx next export
+# Evitar OOM en builds grandes
+ENV NODE_OPTIONS=--max-old-space-size=4096
+
+# Compila (sin usar el script que fuerza Turbopack) y genera la salida estática
+# Usamos `npx next build` aquí para evitar problemas con `--turbopack` en entornos
+# limitados durante la construcción de la imagen.
+RUN npx next build
 
 # ---- Etapa 2: Servir con Nginx (Production Stage) ----
 FROM nginx:1.27-alpine

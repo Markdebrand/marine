@@ -89,7 +89,7 @@ services:
       - backend
     ports:
       # Exponer otra puerta en host para pruebas
-      - "8080:80"
+      - "8081:80"
     networks:
       app:
         aliases:
