@@ -20,20 +20,24 @@ COPY . .
 
 # Permitir inyectar la URL de API en build si es necesario
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_AISSTREAM_KEY
+ARG NEXT_PUBLIC_BACKEND_URL
+ARG NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_AISSTREAM_KEY=${NEXT_PUBLIC_AISSTREAM_KEY}
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+ENV NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK=${NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK}
 
 # Evitar OOM en builds grandes
 ENV NODE_OPTIONS=--max-old-space-size=4096
 
 # Ajustes de CI para Next
 ENV NEXT_TELEMETRY_DISABLED=1 \
-	CI=1 \
-	NEXT_DISABLE_SWC_NATIVE=1
+	CI=1
 
-# Compila (sin usar el script que fuerza Turbopack) y genera la salida estática
-# Usamos `npx next build` aquí para evitar problemas con `--turbopack` en entornos
-# limitados durante la construcción de la imagen.
-RUN npm run build
+# Compila y genera la salida estática con Next nativo (SWC nativo habilitado por defecto)
+# Usamos `npx next build` para evitar cualquier wrapper custom del package.json.
+RUN npx --yes next@15 build
 
 # ---- Etapa 2: Servir con Nginx (Production Stage) ----
 FROM nginx:1.27
