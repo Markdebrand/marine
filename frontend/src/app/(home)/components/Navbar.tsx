@@ -122,11 +122,11 @@ function Navbar() {
             aria-label="Go home"
           >
             <Image
-              src="/Icon.png"
+              src="/HSO Marine Isotype.svg"
               alt="HSO MARINE"
               width={28}
               height={28}
-              className="h-7 w-7"
+              className="h-11 w-12"
             />
             <span className="tracking-wide">HSO MARINE</span>
           </Link>

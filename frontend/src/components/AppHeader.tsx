@@ -50,8 +50,8 @@ export default function AppHeader() {
       <div className="mx-auto max-w-7xl px-6">
         <div className="glass-card flex items-center justify-between gap-4 p-3 border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <Image src="/Icon.png" alt="MarinaLive" width={28} height={28} className="h-7 w-7" />
-            <span className="font-semibold text-slate-900">HSO Marine</span>
+            <Image src="/HSO Marine Isotype.svg" alt="MarinaLive" width={36} height={36} className="h-9 w-9" />
+            <span className="text-lg md:text-2xl font-bold text-slate-900 leading-tight">HSO Marine</span>
           </div>
           <div className="flex items-center gap-2 relative">
             <nav className="flex items-center gap-2">

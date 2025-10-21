@@ -50,7 +50,7 @@ export default function Home() {
             <div className="relative">
               <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-sky-50 via-white to-indigo-50 p-2 shadow-[0_10px_30px_rgba(2,6,23,0.08)] ring-1 ring-slate-200">
                 <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
-                  <Image src="/Logo-2.png" alt="Marine Time" fill className="object-contain p-6" priority />
+                  <Image src="/HSO Marine Isotype.svg" alt="Marine Time" fill className="object-contain p-6" priority />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white/0 via-white/0 to-white/0" />
                 </div>
                 <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-[rgba(239,68,68,0.18)] blur-[50px]" />

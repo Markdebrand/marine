@@ -155,7 +155,7 @@ export default function ServicesPage() {
       {/* Cierre con imagen + bullets */}
       <div className="mt-10 grid md:grid-cols-2 gap-8 items-center">
         <div className="rounded-2xl overflow-hidden shadow-sm">
-          <Image src="/Logo-2.png" alt="Resumen" width={960} height={640} className="w-full h-auto object-contain" />
+          <Image src="/HSO Marine Isotype.svg" alt="Resumen" width={960} height={640} className="w-full h-auto object-contain" />
         </div>
         <div>
           <div className="text-2xl font-semibold text-slate-900">Gobierno y operación</div>

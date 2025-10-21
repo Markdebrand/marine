@@ -44,7 +44,7 @@ export function Footer() {
         {/* Brand + developed by */}
         <div>
           <Link href="/" className="inline-flex items-center gap-2 rounded-md bg-white/5 px-3 py-2 ring-1 ring-white/10">
-            <Image src="/Logo-2.svg" alt="HSO Marine" width={28} height={28} className="h-7 w-7" />
+            <Image src="/HSO Marine Isotype.svg" alt="HSO Marine" width={28} height={28} className="h-7 w-7" />
             <span className="font-semibold text-white">HSO Marine</span>
           </Link>
 
