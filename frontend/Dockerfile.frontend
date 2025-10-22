@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+
+# ---- Base ----
+FROM node:20-alpine AS base
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+WORKDIR /app
+
+# ---- Dependencies ----
+FROM base AS deps
+# Instala dependencias sólo con los archivos de manifiesto para aprovechar la cache
+COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+# Usa npm por defecto; si no hay lockfile, hace fallback a install normal
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; \
+    else npm install --omit=dev; fi
+
+# ---- Builder ----
+FROM node:20-alpine AS builder
+ENV NEXT_TELEMETRY_DISABLED=1
+WORKDIR /app
+
+# Build args para variables públicas (inyectadas en tiempo de build)
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_AISSTREAM_KEY
+ARG NEXT_PUBLIC_BACKEND_URL
+ARG NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
+    NEXT_PUBLIC_AISSTREAM_KEY=${NEXT_PUBLIC_AISSTREAM_KEY} \
+    NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL} \
+    NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK=${NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK}
+
+COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+# Copia el código fuente y construye
+COPY . .
+RUN npm run build
+
+# ---- Runner ----
+FROM node:20-alpine AS runner
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    HOSTNAME=0.0.0.0 \
+    PORT=80
+WORKDIR /app
+
+# Crea usuario no root
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+
+# Copia la salida standalone + assets estáticos
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+# Permisos
+RUN chown -R nextjs:nodejs /app
+USER nextjs
+
+EXPOSE 80
+
+# Ejecuta el servidor standalone de Next.js
+CMD ["node", "server.js"]

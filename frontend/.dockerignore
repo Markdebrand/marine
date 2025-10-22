@@ -1,0 +1,24 @@
+# Dependencias locales
+node_modules
+
+# Salida de build de Next
+.next
+out
+
+# Logs y cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+**/.DS_Store
+**/Thumbs.db
+
+# Control de versiones / CI
+.git
+.gitignore
+.github
+
+# Otros
+.vscode
+*.swp
+*.swo
