@@ -25,7 +25,7 @@ export default function AboutPage() {
           </div>
           <div className="glass-card p-3 sm:p-4">
             <div className="relative aspect-4/3 w-full overflow-hidden rounded-2xl bg-linear-to-br from-sky-50 via-white to-indigo-50">
-              <Image src="/Logo-2.png" alt="Marine Time" fill className="object-contain p-6" />
+              <Image src="/HSOMarineLogo.svg" alt="Marine Time" fill className="object-contain p-6" />
             </div>
           </div>
         </div>

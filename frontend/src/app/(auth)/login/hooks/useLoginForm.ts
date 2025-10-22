@@ -13,6 +13,7 @@ export function useLoginForm() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof AuthCredentials, string>>>({});
   const router = useRouter();
   const { setStatus, setUser } = useAuthStore();
 
@@ -24,6 +25,20 @@ export function useLoginForm() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
+    // validate
+    const errs: Partial<Record<keyof AuthCredentials, string>> = {};
+    if (!values.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+      errs.email = "Please enter a valid email address";
+    }
+    if (!values.password || values.password.length < 8) {
+      errs.password = "Password must be at least 8 characters";
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       await loginRequest(values);
@@ -40,5 +55,5 @@ export function useLoginForm() {
     }
   };
 
-  return { values, loading, error, onChange, onSubmit };
+  return { values, loading, error, fieldErrors, onChange, onSubmit };
 }

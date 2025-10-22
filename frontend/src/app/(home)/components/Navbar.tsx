@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { Phone, Globe, User } from 'lucide-react';
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -12,44 +13,11 @@ const NAV_LINKS = [
   { href: "/contact", label: "Contact Us" },
 ] as const;
 
-function IconPhone({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-    >
-      <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h2A1.5 1.5 0 0 1 7 3.5V6a1.5 1.5 0 0 1-1 1.414c.27.74.63 1.459 1.08 2.152a17 17 0 0 0 3.354 3.354c.693.45 1.412.81 2.152 1.08A1.5 1.5 0 0 1 14 14h2.5A1.5 1.5 0 0 1 18 15.5v2A1.5 1.5 0 0 1 16.5 19h-1A13.5 13.5 0 0 1 2 5.5v-2Z" />
-    </svg>
-  );
-}
+// IconPhone removed - using lucide-react Phone icon instead
 
-function IconGlobe({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-    >
-      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2c1.53 0 2.93.43 4.13 1.17-.4.3-.82.55-1.26.75-.88.39-1.87.58-2.87.58s-1.99-.19-2.87-.58A7.94 7.94 0 0 1 7.87 5.17 7.98 7.98 0 0 1 12 4Zm-6 8c0-.69.1-1.36.29-2 .79.47 1.64.83 2.53 1.06 1.06.28 2.16.42 3.18.42s2.12-.14 3.18-.42c.89-.23 1.74-.59 2.53-1.06.19.64.29 1.31.29 2s-.1 1.36-.29 2a9.94 9.94 0 0 1-2.53-1.06A13.5 13.5 0 0 1 12 12c-1.02 0-2.12.14-3.18.42A9.94 9.94 0 0 1 6.29 14 7.98 7.98 0 0 1 6 12Zm6 8a7.98 7.98 0 0 1-4.13-1.17c.4-.3.82-.55 1.26-.75.88-.39 1.87-.58 2.87-.58s1.99.19 2.87.58c.44.2.86.45 1.26.75A7.98 7.98 0 0 1 12 20Z" />
-    </svg>
-  );
-}
+// Removed IconGlobe function definition
 
-function IconUser({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-    >
-      <path d="M12 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 12c4.42 0 8 2.24 8 5v1H4v-1c0-2.76 3.58-5 8-5Z" />
-    </svg>
-  );
-}
+// Replaced IconUser function with lucide-react User component
 
 function IconMenu({ className = "w-7 h-7" }: { className?: string }) {
   return (
@@ -90,13 +58,13 @@ function IconClose({ className = "w-7 h-7" }: { className?: string }) {
 }
 
 function Navbar() {
-  const { token } = useAuth();
+  const { status, user } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   // Evitar mismatch SSR/CSR: mantener href estable en SSR y cambiar tras montar
-  const ctaHref = mounted && token ? "/map" : "/login";
+  const ctaHref = mounted && status === "authenticated" ? "/map" : "/login";
 
   // Prefetch common routes to speed up header navigation
   useEffect(() => {
@@ -124,11 +92,11 @@ function Navbar() {
             {/* Show wordmark on sm+ screens: keep it inline and constrained to avoid large gaps */}
             <div className="hidden sm:flex flex-col leading-none">
               <Image
-                src="/HSOMarineIsotype.svg"
+                src="/HSOMarineLogo.svg"
                 alt="HSO MARINE"
                 width={200}
                 height={36}
-                className="h-7 w-auto"
+                className="h-12 w-auto"
               />
             </div>
           </Link>
@@ -163,21 +131,23 @@ function Navbar() {
             href="tel:+16625639786"
             className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-slate-800"
           >
-            <IconPhone />
+            <Phone className="h-4 w-4" />
             <span className="whitespace-nowrap">+1 (662) 563-9786</span>
           </a>
           <button
             aria-label="Language"
             className="hidden md:inline-flex items-center justify-center text-slate-600 hover:text-slate-800"
           >
-            <IconGlobe />
+            <Globe className="h-4 w-4" />
           </button>
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 text-slate-900 font-semibold tracking-wide"
+            className="inline-flex items-center gap-3 hover:bg-white/5 rounded-md px-2 py-1"
           >
-            <IconUser />
-            <span>LOG IN</span>
+            <span className="inline-flex items-center justify-center rounded-md bg-white/5 text-slate-700 p-1.5">
+              <User className="h-4 w-4 text-slate-700" />
+            </span>
+            <span className="text-slate-800 font-medium">Login</span>
           </Link>
           <Link
             href={ctaHref}
@@ -187,16 +157,32 @@ function Navbar() {
           </Link>
         </div>
 
-        {/* Mobile Menu Button */}
-        <div className="lg:hidden">
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="text-slate-900"
-            aria-label="Toggle menu"
-            type="button"
-          >
-            {isMenuOpen ? <IconClose /> : <IconMenu />}
-          </button>
+        {/* Mobile header: show logo + quick controls (phone, login) and menu toggle */}
+        <div className="lg:hidden flex items-center w-full gap-3">
+          <Link href="/" className="flex items-center gap-2" aria-label="Go home">
+            <Image src="/HSOMarineLogo.svg" alt="HSO" width={32} height={32} className="h-10 w-auto" />
+          </Link>
+
+          <div className="ml-auto flex items-center gap-2">
+            <a href="tel:+16625639786" className="hidden sm:inline-flex items-center gap-2 text-slate-600 hover:text-slate-800">
+              <Phone className="h-4 w-4" />
+            </a>
+
+            <Link href="/login" className="inline-flex items-center gap-2 text-slate-800 hover:bg-white/5 rounded-md px-2 py-1">
+              <span className="inline-flex items-center justify-center rounded-md bg-white/5 text-slate-700 p-1">
+                <User className="h-4 w-4 text-slate-700" />
+              </span>
+            </Link>
+
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="p-2 text-slate-900"
+              aria-label="Toggle menu"
+              type="button"
+            >
+              {isMenuOpen ? <IconClose /> : <IconMenu />}
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -204,18 +190,7 @@ function Navbar() {
       {isMenuOpen && (
         <div className="lg:hidden mt-2">
           <div className="mx-auto w-11/12 max-w-7xl glass-card px-4 py-3 flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/Icon.png"
-                alt="HSO"
-                width={32}
-                height={32}
-                className="h-8 w-8"
-              />
-              <div className="text-lg font-semibold text-slate-900">
-                HSO MARINE
-              </div>
-            </div>
+            
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -238,13 +213,7 @@ function Navbar() {
               </Link>
             ))}
             <div className="pt-2 flex items-center gap-3">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 text-slate-900"
-              >
-                <IconUser />
-                <span>LOG IN</span>
-              </Link>
+              
               <Link
                 href={ctaHref}
                 className="inline-flex items-center rounded-xl bg-red-600 px-6 py-3 text-white text-base font-medium hover:bg-red-700 w-full justify-center shadow"
