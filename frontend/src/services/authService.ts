@@ -1,7 +1,11 @@
 import { apiFetch } from "@/lib/api";
 
 export type LoginInput = { email: string; password: string };
-export type TokenResponse = { access_token: string; token_type: string; refresh_token?: string };
+export type TokenResponse = {
+  access_token: string;
+  token_type: string;
+  refresh_token?: string;
+};
 
 export const authService = {
   async login(body: LoginInput) {

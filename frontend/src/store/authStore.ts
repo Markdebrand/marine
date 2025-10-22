@@ -9,7 +9,8 @@ interface AuthState {
 const STORAGE_KEY = "auth_token";
 
 const createAuthSlice: StateCreator<AuthState, [], [], AuthState> = (set) => ({
-  token: typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null,
+  token:
+    typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null,
   setToken: (t) => {
     if (typeof window !== "undefined") {
       if (t) localStorage.setItem(STORAGE_KEY, t);

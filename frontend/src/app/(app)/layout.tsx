@@ -1,13 +1,11 @@
 "use client";
-import AppHeader from "@/components/AppHeader";
+import AppHeader from "@/app/(app)/components/AppHeader";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-white">
       <AppHeader />
-      <div className="mx-auto max-w-7xl px-6 py-6">
-        {children}
-      </div>
+      <div className="mx-auto max-w-7xl px-6 py-6">{children}</div>
     </div>
   );
 }

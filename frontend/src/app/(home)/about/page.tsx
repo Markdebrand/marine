@@ -17,14 +17,14 @@ export default function AboutPage() {
             <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900">
               About Marine Time
             </h1>
-            <div className="mt-2 h-1 w-20 rounded-full bg-gradient-to-r from-red-600 to-rose-400" />
+            <div className="mt-2 h-1 w-20 rounded-full bg-linear-to-r from-red-600 to-rose-400" />
             <p className="mt-4 text-slate-700 leading-relaxed">
               A simple platform to view maritime traffic in real time and make quick decisions.
               Designed for operations and commercial teams that need visibility, context, and alerts without complexity.
             </p>
           </div>
           <div className="glass-card p-3 sm:p-4">
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-sky-50 via-white to-indigo-50">
+            <div className="relative aspect-4/3 w-full overflow-hidden rounded-2xl bg-linear-to-br from-sky-50 via-white to-indigo-50">
               <Image src="/Logo-2.png" alt="Marine Time" fill className="object-contain p-6" />
             </div>
           </div>
@@ -84,7 +84,7 @@ export default function AboutPage() {
         <ul className="mt-3 grid gap-4 sm:grid-cols-2 text-slate-700 text-sm">
           {["Access with control and privacy; secure session.", "Data with proper licensing and retention.", "High availability; support for teams in operation.", "Gradual evolution without friction for users."].map((t, i) => (
             <li key={i} className="relative pl-4">
-              <span className="absolute left-0 top-2 h-8 w-[3px] rounded-full bg-gradient-to-b from-green-500 to-emerald-400" />
+              <span className="absolute left-0 top-2 h-8 w-[3px] rounded-full bg-linear-to-b from-green-500 to-emerald-400" />
               <span className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" /> {t}</span>
             </li>
           ))}
@@ -104,7 +104,7 @@ export default function AboutPage() {
       </div>
 
       {/* CTA */}
-      <div className="mt-10 rounded-2xl p-1 bg-gradient-to-r from-red-500 to-rose-400 section-surface">
+  <div className="mt-10 rounded-2xl p-1 bg-linear-to-r from-red-500 to-rose-400 section-surface">
         <div className="glass-card flex items-center justify-between gap-4 p-6">
           <div>
             <div className="text-slate-900 font-semibold">Ready to try it?</div>

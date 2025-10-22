@@ -19,7 +19,12 @@ type OpenLayersMapProps = {
   seamarkZoomOffset?: 0 | 1 | 2 | 3;
 };
 
-export default function OpenLayersMap({ height = 560, center = [-3.7038, 40.4168], zoom = 3, seamarkZoomOffset = 1 }: OpenLayersMapProps) {
+export default function OpenLayersMap({
+  height = 560,
+  center = [-3.7038, 40.4168],
+  zoom = 3,
+  seamarkZoomOffset = 1,
+}: OpenLayersMapProps) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<OLMap | null>(null);
 
@@ -47,13 +52,12 @@ export default function OpenLayersMap({ height = 560, center = [-3.7038, 40.4168
             source: new XYZ({
               url: "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
               tileGrid: seamarkTileGrid,
-              attributions:
-                '',
+              attributions: "",
               maxZoom: 18,
             }),
             zIndex: 10,
             opacity: 1,
-            className: 'seamarks-layer',
+            className: "seamarks-layer",
           }),
         ],
         view: new View({

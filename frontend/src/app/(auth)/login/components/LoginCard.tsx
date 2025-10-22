@@ -10,8 +10,14 @@ export default function LoginCard() {
     <div className="w-full max-w-lg rounded-2xl glass-card p-6">
       <div className="mb-4 text-center">
         <div className="flex flex-col items-center gap-3">
-          <Image src="/Icon.png" alt="HSO MARINE" width={56} height={56} className="h-14 w-14" />
-          <span className="text-2xl font-semibold text-slate-900">HSO MARINE</span>
+          <Image
+            src="/HSOMarineLogo.svg"
+            alt="HSO MARINE"
+            width={140}
+            height={36}
+            className="h-14 w-auto"
+          />
+          <span className="sr-only">HSO MARINE</span>
         </div>
         <p className="text-slate-900 text-sm mt-1">Welcome back</p>
       </div>
@@ -32,15 +38,25 @@ export default function LoginCard() {
         />
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         <div className="flex items-center justify-between text-sm text-slate-900">
-          <label className="flex items-center gap-2"><input type="checkbox" /> Remember me</label>
-          <a href="#" className="hover:underline">Forgot?</a>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" /> Remember me
+          </label>
+          <a href="#" className="hover:underline">
+            Forgot?
+          </a>
         </div>
-        <button className="mt-3 w-2/3 md:w-1/2 mx-auto block rounded-md bg-red-600 px-6 py-2.5 text-white text-sm font-medium hover:bg-red-700" disabled={loading}>
+        <button
+          className="mt-3 w-2/3 md:w-1/2 mx-auto block rounded-md bg-red-600 px-6 py-2.5 text-white text-sm font-medium hover:bg-red-700"
+          disabled={loading}
+        >
           {loading ? "Signing in…" : "LOG IN"}
         </button>
       </form>
       <div className="text-sm text-slate-900 mt-4 text-center">
-        Don’t have an account? <Link href="#" className="underline">Sign up</Link>
+        Don’t have an account?{" "}
+        <Link href="#" className="underline">
+          Sign up
+        </Link>
       </div>
     </div>
   );

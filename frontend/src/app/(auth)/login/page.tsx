@@ -12,8 +12,7 @@ export default function LoginPage() {
           style={{
             // Usar imagen local si está presente en public/images/login-hero.jpg
             // y mantener un fallback al URL remoto en caso de que falte el asset.
-            backgroundImage:
-              "url('/images/loginvessel.webp')"
+            backgroundImage: "url('/images/loginvessel.webp')",
           }}
         />
         {/* Overlay oscuro para atenuar la imagen */}

@@ -6,14 +6,19 @@ import type { AuthCredentials } from "../types/auth";
 import { login as loginRequest } from "../services/authClient";
 
 export function useLoginForm() {
-  const [values, setValues] = useState<AuthCredentials>({ email: "", password: "" });
+  const [values, setValues] = useState<AuthCredentials>({
+    email: "",
+    password: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const { setToken } = useAuth();
 
-  const onChange = (field: keyof AuthCredentials) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setValues((v) => ({ ...v, [field]: e.target.value }));
+  const onChange =
+    (field: keyof AuthCredentials) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setValues((v) => ({ ...v, [field]: e.target.value }));
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

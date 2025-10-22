@@ -118,26 +118,32 @@ function Navbar() {
         <div className="flex items-center gap-4">
           <Link
             href="/"
-            className="flex items-center gap-2 font-bold text-[24px] text-slate-900"
+            className="flex items-center gap-3 text-slate-900"
             aria-label="Go home"
           >
-            <Image
-              src="/Icon.png"
-              alt="HSO MARINE"
-              width={28}
-              height={28}
-              className="h-7 w-7"
-            />
-            <span className="tracking-wide">HSO MARINE</span>
+            {/* Show wordmark on sm+ screens: keep it inline and constrained to avoid large gaps */}
+            <div className="hidden sm:flex flex-col leading-none">
+              <Image
+                src="/HSOMarineIsotype.svg"
+                alt="HSO MARINE"
+                width={200}
+                height={36}
+                className="h-7 w-auto"
+              />
+            </div>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-4 text-[16px]">
+          <div className="hidden lg:flex items-center gap-2 text-[16px]">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 prefetch
-                onMouseEnter={() => { try { router.prefetch(link.href); } catch {} }}
+                onMouseEnter={() => {
+                  try {
+                    router.prefetch(link.href);
+                  } catch {}
+                }}
                 className={`transition-colors hover:text-red-600 ${
                   pathname === link.href ||
                   (link.href !== "/" && pathname.startsWith(link.href))
@@ -198,12 +204,28 @@ function Navbar() {
       {isMenuOpen && (
         <div className="lg:hidden mt-2">
           <div className="mx-auto w-11/12 max-w-7xl glass-card px-4 py-3 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <Image
+                src="/Icon.png"
+                alt="HSO"
+                width={32}
+                height={32}
+                className="h-8 w-8"
+              />
+              <div className="text-lg font-semibold text-slate-900">
+                HSO MARINE
+              </div>
+            </div>
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 prefetch
-                onMouseEnter={() => { try { router.prefetch(link.href); } catch {} }}
+                onMouseEnter={() => {
+                  try {
+                    router.prefetch(link.href);
+                  } catch {}
+                }}
                 className={`transition-colors hover:text-red-600 ${
                   pathname === link.href ||
                   (link.href !== "/" && pathname.startsWith(link.href))
