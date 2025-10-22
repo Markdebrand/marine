@@ -14,6 +14,7 @@ from functools import wraps
 from app.config.settings import REDIS_URL, APP_NAME
 
 logger = logging.getLogger("app.utils.cache")
+diag_logger = logging.getLogger("app.utils.cache_diag")
 
 # --- In-memory store (fallback) ---
 _store: Dict[str, Tuple[float, Any]] = {}
@@ -64,6 +65,11 @@ def set_cache(key: str, value: Any, ttl_seconds: int) -> None:
     ttl = max(0, int(ttl_seconds))
     # Siempre escribir en memoria (backup local)
     _store[_mkey(key)] = (_now() + ttl, value)
+    try:
+        if key.startswith("session:active:"):
+            diag_logger.info("cache.set", extra={"key": key, "ttl": ttl})
+    except Exception:
+        pass
     if not _redis_enabled or _redis is None or ttl == 0:
         return
     try:
@@ -81,8 +87,31 @@ def get_cache(key: str) -> Optional[Any]:
             if raw is not None:
                 try:
                     val = _deserialize(raw) # pyright: ignore[reportArgumentType]
-                    # Opcional: propagar a memoria para acceso local rápido
-                    _store[_mkey(key)] = (_now() + 60, val)  # pequeño TTL de sombra
+                    # Propagar a memoria para acceso local rápido pero con TTL muy corto
+                    # Cuando Redis está habilitado, evitamos copiar TTL largos a memoria local
+                    # porque otros procesos no pueden ser notificados del clear_cache.
+                    try:
+                        ttl = None
+                        if hasattr(_redis, 'ttl'):
+                            try:
+                                ttl_val = _redis.ttl(_mkey(key))
+                                if isinstance(ttl_val, int) and ttl_val > 0:
+                                    ttl = int(ttl_val)
+                            except Exception:
+                                ttl = None
+                        # Shadow TTL: mínimo entre el TTL real y un umbral corto (2s)
+                        shadow_ttl = 2
+                        if isinstance(ttl, int) and ttl > 0:
+                            shadow_ttl = min(ttl, 2)
+                        _store[_mkey(key)] = (_now() + shadow_ttl, val)
+                    except Exception:
+                        # Fallback conservador: 2s
+                        _store[_mkey(key)] = (_now() + 2, val)
+                    try:
+                        if key.startswith("session:active:"):
+                            diag_logger.info("cache.get.redis_hit", extra={"key": key, "shadow_ttl": shadow_ttl})
+                    except Exception:
+                        pass
                     return val
                 except Exception:
                     # Si no se puede deserializar, borrar y seguir con memoria
@@ -92,11 +121,27 @@ def get_cache(key: str) -> Optional[Any]:
     # Fallback a memoria
     item = _store.get(_mkey(key))
     if not item:
+        try:
+            if key.startswith("session:active:"):
+                diag_logger.info("cache.get.mem_miss", extra={"key": key})
+        except Exception:
+            pass
         return None
     expires_at, value = item
     if _now() >= expires_at:
         _store.pop(_mkey(key), None)
+        try:
+            if key.startswith("session:active:"):
+                diag_logger.info("cache.get.mem_expired", extra={"key": key})
+        except Exception:
+            pass
         return None
+    else:
+        try:
+            if key.startswith("session:active:"):
+                diag_logger.info("cache.get.mem_hit", extra={"key": key, "ttl_left": expires_at - _now()})
+        except Exception:
+            pass
     return value
 
 
@@ -115,6 +160,11 @@ def clear_cache(prefix: Optional[str] = None) -> None:
         for k in list(_store.keys()):
             if k.startswith(p):
                 _store.pop(k, None)
+        try:
+            if prefix and prefix.startswith("session:active:"):
+                diag_logger.info("cache.clear.mem", extra={"prefix": prefix})
+        except Exception:
+            pass
     # Limpiar Redis
     if _redis_enabled and _redis is not None:
         try:

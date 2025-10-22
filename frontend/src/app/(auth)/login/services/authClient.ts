@@ -1,19 +1,7 @@
-import type { AuthCredentials, AuthResponse } from "../types/auth";
-import { apiFetch } from "@/lib/api";
+import type { AuthCredentials } from "../types/auth";
+import { authService } from "@/services/authService";
 
-// Real login against backend
-export async function login(
-  credentials: AuthCredentials
-): Promise<AuthResponse> {
-  const res = await apiFetch<{ access_token: string; refresh_token?: string }>(
-    `/auth/login`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        email: credentials.email,
-        password: credentials.password,
-      }),
-    }
-  );
-  return { token: res.access_token, user: { email: credentials.email } };
+// Login contra el backend; deja cookies y refresh_token en memoria
+export async function login(credentials: AuthCredentials) {
+  return authService.login({ email: credentials.email, password: credentials.password });
 }

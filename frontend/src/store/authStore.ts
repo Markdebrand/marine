@@ -1,23 +1,37 @@
 "use client";
-import { create, StateCreator } from "zustand";
+import { create } from "zustand";
 
-interface AuthState {
-  token: string | null;
-  setToken: (t: string | null) => void;
-}
+export type AuthUser = {
+  id: number;
+  email: string;
+  role?: string | null;
+  is_superadmin?: boolean | null;
+};
 
-const STORAGE_KEY = "auth_token";
+type AuthState = {
+  status: "idle" | "loading" | "authenticated" | "unauthenticated";
+  user: AuthUser | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  loginAt: number | null;
+  setStatus: (s: AuthState["status"]) => void;
+  setUser: (u: AuthUser | null) => void;
+  setAccessToken: (t: string | null) => void;
+  setRefreshToken: (t: string | null) => void;
+  setLoginAt: (ts: number | null) => void;
+  resetAuth: () => void;
+};
 
-const createAuthSlice: StateCreator<AuthState, [], [], AuthState> = (set) => ({
-  token:
-    typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null,
-  setToken: (t) => {
-    if (typeof window !== "undefined") {
-      if (t) localStorage.setItem(STORAGE_KEY, t);
-      else localStorage.removeItem(STORAGE_KEY);
-    }
-    set({ token: t });
-  },
-});
-
-export const useAuthStore = create<AuthState>()(createAuthSlice);
+export const useAuthStore = create<AuthState>()((set) => ({
+  status: "idle",
+  user: null,
+  accessToken: null,
+  refreshToken: null,
+  loginAt: null,
+  setStatus: (s) => set({ status: s }),
+  setUser: (u) => set({ user: u }),
+  setAccessToken: (t) => set({ accessToken: t }),
+  setRefreshToken: (t) => set({ refreshToken: t }),
+  setLoginAt: (ts) => set({ loginAt: ts }),
+  resetAuth: () => set({ status: "unauthenticated", user: null, accessToken: null, refreshToken: null, loginAt: null }),
+}));

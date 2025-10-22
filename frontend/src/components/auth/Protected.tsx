@@ -4,15 +4,16 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
 export function Protected({ children }: { children: ReactNode }) {
-  const { token } = useAuth();
+  const { status } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!token) {
+    if (status === "unauthenticated") {
       router.replace("/login");
     }
-  }, [token, router]);
+  }, [status, router]);
 
-  if (!token) return null;
+  if (status === "loading" || status === "idle") return null;
+  if (status !== "authenticated") return null;
   return <>{children}</>;
 }

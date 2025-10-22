@@ -39,6 +39,7 @@ from app.core.auth.session_manager import invalidate_session_cache
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("app.auth")
+diag_logger = logging.getLogger("app.auth.diagnostic")
 
 
 def _set_auth_cookies(response: Response, access_token: str | None, refresh_token: str | None):
@@ -190,6 +191,15 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
             .first()
         )
         if existing is not None:
+            try:
+                diag_logger.info("login: found existing active session", extra={
+                    "user_id": persona.id,
+                    "session_id": getattr(existing, 'id', None),
+                    "token_hash": getattr(existing, 'token_hash', None),
+                })
+            except Exception:
+                pass
+        if existing is not None:
             # 409 Conflict con detalle específico para frontend
             raise HTTPException(status_code=409, detail={
                 "code": "single_session_active",
@@ -227,6 +237,10 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
             expires_at=refresh_expiry(),
         ))
         db.commit()
+        try:
+            diag_logger.info("login: created session token", extra={"user_id": persona.id, "token_hash": refresh_h})
+        except Exception:
+            pass
         try:
             invalidate_session_cache(refresh_h)
         except Exception:
@@ -367,34 +381,81 @@ def logout(request: Request, response: Response, body: LogoutRequest | None = No
     except Exception:
         pass
 
-    # Revoke refresh token if provided
+    # Revocar la sesión actual de forma robusta, incluso si el cliente no envía refresh_token
     try:
+        target_st = None
+
+        # 1) Si el cliente envía el refresh_token en el body, úsalo directamente
         if body and body.refresh_token:
             h = hash_refresh_token(body.refresh_token)
-            st = db.query(models.SessionToken).filter(models.SessionToken.token_hash == h).first()
-            if st and getattr(st, 'revoked_at', None) is None:
-                # If client provided active_seconds, set it now so revoke helper respects it
-                try:
-                    if isinstance(getattr(body, 'active_seconds', None), int) and int(getattr(body, 'active_seconds')) > 0:
-                        st.active_seconds = int(getattr(body, 'active_seconds'))  # type: ignore[assignment]
-                        db.add(st)
-                        db.commit()
-                except Exception:
-                    db.rollback()
-                # use revoke helper to compute active_seconds and persist
-                try:
-                    revoke_session_token(db, st, reason="logout")
+            try:
+                diag_logger.info("logout: client provided refresh_token", extra={"user_id": getattr(user,'id',None), "refresh_hash": h})
+            except Exception:
+                pass
+            target_st = db.query(models.SessionToken).filter(models.SessionToken.token_hash == h).first()
+
+        # 2) Si no hay body.refresh_token, intenta extraer el sid del access token ya validado
+        if target_st is None:
+            try:
+                payload = getattr(request.state, "token_payload", None)
+                sid = payload.get("sid") if isinstance(payload, dict) else None
+                if sid:
                     try:
-                        invalidate_session_cache(getattr(st, 'token_hash', '') or '')
+                        diag_logger.info("logout: extracted sid from access token", extra={"user_id": getattr(user,'id',None), "sid": sid})
                     except Exception:
                         pass
-                except Exception:
-                    # best-effort fallback
-                    from datetime import datetime, timezone
-                    st.revoked_at = datetime.now(timezone.utc)  # type: ignore[assignment]
-                    st.revoke_reason = "logout"  # type: ignore[assignment]
-                    db.add(st)
+                    target_st = (
+                        db.query(models.SessionToken)
+                        .filter(models.SessionToken.token_hash == sid)
+                        .first()
+                    )
+            except Exception:
+                target_st = None
+
+        # 3) Último recurso: revocar la sesión activa más reciente del usuario
+        if target_st is None and user is not None:
+            target_st = (
+                db.query(models.SessionToken)
+                .filter(
+                    models.SessionToken.user_id == getattr(user, 'id', None),
+                    models.SessionToken.revoked_at.is_(None),
+                )
+                .order_by(models.SessionToken.id.desc())
+                .first()
+            )
+
+        if target_st is not None and getattr(target_st, 'revoked_at', None) is None:
+            # Si el cliente pasó active_seconds, respétalo
+            try:
+                if body and isinstance(getattr(body, 'active_seconds', None), int) and int(getattr(body, 'active_seconds')) > 0:
+                    target_st.active_seconds = int(getattr(body, 'active_seconds'))  # type: ignore[assignment]
+                    db.add(target_st)
                     db.commit()
+            except Exception:
+                db.rollback()
+
+            # Revocar con helper (calcula active_seconds y limpia caché)
+            try:
+                revoke_session_token(db, target_st, reason="logout")
+                try:
+                    invalidate_session_cache(getattr(target_st, 'token_hash', '') or '')
+                except Exception:
+                    pass
+                try:
+                    diag_logger.info("logout: revoked session", extra={"user_id": getattr(user,'id',None), "session_id": getattr(target_st,'id',None), "token_hash": getattr(target_st,'token_hash',None)})
+                except Exception:
+                    pass
+            except Exception:
+                # Fallback best-effort
+                from datetime import datetime, timezone
+                target_st.revoked_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                target_st.revoke_reason = "logout"  # type: ignore[assignment]
+                db.add(target_st)
+                db.commit()
+                try:
+                    diag_logger.info("logout: fallback revoked session", extra={"user_id": getattr(user,'id',None), "session_id": getattr(target_st,'id',None), "token_hash": getattr(target_st,'token_hash',None)})
+                except Exception:
+                    pass
     except Exception:
         db.rollback()
 

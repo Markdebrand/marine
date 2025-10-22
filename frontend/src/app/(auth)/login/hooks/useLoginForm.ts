@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
 import type { AuthCredentials } from "../types/auth";
 import { login as loginRequest } from "../services/authClient";
+import { useAuthStore } from "@/store/authStore";
+import { authService } from "@/services/authService";
 
 export function useLoginForm() {
   const [values, setValues] = useState<AuthCredentials>({
@@ -13,7 +14,7 @@ export function useLoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { setToken } = useAuth();
+  const { setStatus, setUser } = useAuthStore();
 
   const onChange =
     (field: keyof AuthCredentials) =>
@@ -25,8 +26,11 @@ export function useLoginForm() {
     setError(null);
     setLoading(true);
     try {
-      const { token } = await loginRequest(values);
-      setToken(token);
+      await loginRequest(values);
+      // Cargamos el perfil para confirmar autenticación
+      const me = await authService.me();
+      setUser(me);
+      setStatus("authenticated");
       router.replace("/map");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
