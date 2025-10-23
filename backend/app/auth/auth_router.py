@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from typing import cast
 from sqlalchemy.orm import Session
-from jose import jwt, JWTError
+from jose import jwt
 from app.db.database import get_db
 from app.db import models
-from app.auth.auth_schemas import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse, UserInfo, RefreshRequest, ProfileResponse, ProfileUpdate
+from app.auth.auth_schemas import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse, UserInfo, RefreshRequest, ProfileResponse, ProfileUpdate, SessionEntry
 from app.auth.security_jwt import (
     create_access_token,
     generate_refresh_token,
@@ -32,14 +32,47 @@ from app.config.settings import (
 )
 from app.audit.audit_logger import record_login_success, record_login_failure, record_logout
 from app.core.auth.session_manager import get_current_user
-from app.db.queries.session_queries import revoke_session_token, revoke_all_active_sessions_for_user, revoke_other_active_sessions_for_user
+from app.db.queries.session_queries import revoke_session_token, revoke_other_active_sessions_for_user, revoke_all_active_sessions_for_user
 import logging
 from app.utils.adapters.cache_adapter import get_cache, set_cache, clear_cache
 from app.core.auth.session_manager import invalidate_session_cache
+import time
+from fastapi.security import HTTPBearer
+from pydantic import BaseModel
+from app.core.auth.guards import require_admin
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("app.auth")
 diag_logger = logging.getLogger("app.auth.diagnostic")
+
+
+def _ensure_rate_limit(email: str, request: Request | None = None) -> str:
+    """Ensure rate limit window for the given email+ip. Raises HTTPException(429) on limit exceeded.
+
+    Returns the cache key used for this rate limiter so callers can update/clear it.
+    """
+    ip = request.client.host if request and request.client else "-"
+    rl_key = f"auth:rl:{email.lower()}:{ip}"
+    data = get_cache(rl_key) or {"c": 0, "t": 0}
+    try:
+        c = int(data.get("c", 0))
+    except Exception:
+        c = 0
+    try:
+        t = int(data.get("t", 0))
+    except Exception:
+        t = 0
+    now = int(time.time())
+    wnd = int(AUTH_RATE_LIMIT_WINDOW_SECONDS)
+    maxc = int(AUTH_RATE_LIMIT_MAX_ATTEMPTS)
+    if now - t > wnd:
+        c = 0
+        t = now
+    if c >= maxc:
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
+    # provisionalmente guardar ventana actualizada
+    set_cache(rl_key, {"c": c, "t": t or now}, AUTH_RATE_LIMIT_WINDOW_SECONDS)
+    return rl_key
 
 
 def _set_auth_cookies(response: Response, access_token: str | None, refresh_token: str | None):
@@ -89,28 +122,15 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
-    # Rate limit por IP+email
+    # Rate limit por IP+email (delegado a helper)
     rl_key = None
     try:
-        ip = request.client.host if request and request.client else "-"
-        rl_key = f"auth:rl:{body.email.lower()}:{ip}"
-        data = get_cache(rl_key) or {"c": 0, "t": 0}
-        c = int(data.get("c", 0))
-        t = int(data.get("t", 0))
-        import time as _tm
-        now = int(_tm.time())
-        wnd = int(AUTH_RATE_LIMIT_WINDOW_SECONDS)
-        maxc = int(AUTH_RATE_LIMIT_MAX_ATTEMPTS)
-        if now - t > wnd:
-            c = 0; t = now
-        if c >= maxc:
-            raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
-        # provisionalmente guardar ventana actualizada
-        set_cache(rl_key, {"c": c, "t": t or now}, AUTH_RATE_LIMIT_WINDOW_SECONDS)
+        rl_key = _ensure_rate_limit(body.email)
     except HTTPException:
         raise
     except Exception:
-        pass
+        # If rate limiter fails for any reason, allow login to proceed (best-effort)
+        rl_key = None
     # Static fallback if configured
     if STATIC_AUTH_ENABLED and STATIC_AUTH_EMAIL and STATIC_AUTH_PASSWORD and body.email.lower() == STATIC_AUTH_EMAIL.lower():
         static_ok = False
@@ -157,9 +177,9 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
         # incrementar contador de intentos fallidos
         try:
             if rl_key:
-                data = get_cache(rl_key) or {"c": 0, "t": int(__import__('time').time())}
+                data = get_cache(rl_key) or {"c": 0, "t": int(time.time())}
                 c = int(data.get("c", 0)) + 1
-                t = int(data.get("t", int(__import__('time').time())))
+                t = int(data.get("t", int(time.time())))
                 set_cache(rl_key, {"c": c, "t": t}, AUTH_RATE_LIMIT_WINDOW_SECONDS)
         except Exception:
             pass
@@ -177,7 +197,7 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
     except Exception:
         pass
 
-    # ENFORCE: single session policy – si ya existe una sesión activa, bloquear este login y pedir cerrar la otra
+    # ENFORCE: single session policy — comportamiento configurable
     try:
         from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
@@ -199,12 +219,24 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
                 })
             except Exception:
                 pass
-        if existing is not None:
-            # 409 Conflict con detalle específico para frontend
-            raise HTTPException(status_code=409, detail={
-                "code": "single_session_active",
-                "message": "Cierra sesión en el otro dispositivo para continuar.",
-            })
+            from app.config.settings import SINGLE_SESSION_POLICY
+            policy = (SINGLE_SESSION_POLICY or "block").lower()
+            if policy == "block":
+                # 409 Conflict con detalle específico para frontend
+                raise HTTPException(status_code=409, detail={
+                    "code": "single_session_active",
+                    "message": "Cierra sesión en el otro dispositivo para continuar.",
+                })
+            elif policy == "force":
+                # Revocar todas las sesiones activas antes de continuar (atomicidad no crítica aquí)
+                try:
+                    revoke_all_active_sessions_for_user(db, user_id=int(persona.id), reason="force_new_login")
+                except Exception:
+                    # Si no podemos revocar por alguna razón, fallamos safe (bloquear)
+                    raise HTTPException(status_code=409, detail={
+                        "code": "single_session_active",
+                        "message": "No se pudo cerrar la sesión previa. Intenta de nuevo.",
+                    })
     except HTTPException:
         raise
     except Exception:
@@ -219,7 +251,8 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
             effective_role = 'admin'
         is_super = bool(getattr(persona, 'is_superadmin', False))
     except Exception:
-        effective_role = 'user'; is_super = False
+        effective_role = 'user'
+        is_super = False
     token = create_access_token(str(persona.id), sid=refresh_h, role=effective_role, is_superadmin=is_super)
 
     # Política anterior (revoque otros) eliminada porque ahora bloqueamos cuando hay activa
@@ -227,7 +260,8 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
         ip = request.client.host if request and request.client else "-"
         ua = request.headers.get("user-agent", "-") if request else "-"
     except Exception:
-        ip = "-"; ua = "-"
+        ip = "-"
+        ua = "-"
     try:
         db.add(models.SessionToken(
             user_id=cast(int, persona.id),
@@ -271,7 +305,6 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
 
 
 # Dependency to extract current user
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 security = HTTPBearer(auto_error=False)
 
 
@@ -284,7 +317,6 @@ def _build_profile_response(db: Session, user: models.User) -> ProfileResponse:
     active status, and its plan to minimize roundtrips.
     """
     from sqlalchemy import desc, case
-    from sqlalchemy.orm import aliased
 
     # Compose a single query: prefer active subscriptions, else latest by id
     # Order by active flag desc, then subscription id desc
@@ -336,9 +368,6 @@ def me(user: models.User = Depends(get_current_user), db: Session = Depends(get_
         return resp
     except Exception:
         return _build_profile_response(db, user)
-
-
-from pydantic import BaseModel
 
 
 class SetPasswordRequest(BaseModel):
@@ -481,13 +510,14 @@ def refresh_token(body: RefreshRequest, request: Request, response: Response, db
             effective_role = 'admin'
         is_super = bool(getattr(user, 'is_superadmin', False)) if user else False
     except Exception:
-        effective_role = 'user'; is_super = False
+        effective_role = 'user'
+        is_super = False
     token = create_access_token(str(st.user_id), sid=refresh_h, role=effective_role, is_superadmin=is_super)
     try:
-        # Revoca el usado para refrescar
-        revoke_session_token(db, st)
+        # Revoca el usado para refrescar sin hacer commit (permitir atomicidad al crear el nuevo)
+        revoke_session_token(db, st, commit=False)
 
-        # Crea el nuevo SessionToken
+        # Crea el nuevo SessionToken (en la misma transacción)
         new_st = models.SessionToken(
             user_id=int(st.user_id), # type: ignore
             token_hash=refresh_h,
@@ -496,6 +526,7 @@ def refresh_token(body: RefreshRequest, request: Request, response: Response, db
             expires_at=refresh_expiry(),
         )
         db.add(new_st)
+        # Commit una sola vez para hacer la rotación atómica
         db.commit()
         db.refresh(new_st)
         try:
@@ -560,14 +591,6 @@ def ping(request: Request, body: PingRequest | None = None, user: models.User = 
 
 
 # ---- Admin guard ----
-from app.core.auth.guards import require_admin
-
-
-@router.get("/profile", response_model=ProfileResponse)
-def profile(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)) -> ProfileResponse:
-    return _build_profile_response(db, user)
-
-
 @router.patch("/profile", response_model=ProfileResponse)
 def update_profile(body: ProfileUpdate, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)) -> ProfileResponse:
     if not user:
@@ -630,75 +653,8 @@ def update_profile(body: ProfileUpdate, user: models.User = Depends(get_current_
     return _build_profile_response(db, user)
 
 
-# Sessions list for current user
-from app.auth.auth_schemas import SessionEntry, UserInfo
-
-
-@router.get("/sessions", response_model=list[SessionEntry])
-def sessions(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[SessionEntry]:
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    # Query session tokens for user
-    rows = (
-        db.query(models.SessionToken)
-        .filter(models.SessionToken.user_id == user.id)
-        .order_by(models.SessionToken.id.desc())
-        .all()
-    )
-    out: list[SessionEntry] = []
-    from datetime import timezone, datetime
-    now = datetime.now(timezone.utc)
-    for r in rows:
-        # Stored value (may be None or stale)
-        stored = getattr(r, 'active_seconds', None)
-        try:
-            stored_int = int(stored) if stored is not None else 0
-        except Exception:
-            stored_int = 0
-
-        # Compute active seconds dynamically for active (not revoked) sessions
-        active_int = stored_int
-        try:
-            if getattr(r, 'revoked_at', None) is None:
-                # Active session: use last_seen_at or now to compute up-to-date active seconds
-                start = getattr(r, 'created_at', None)
-                last = getattr(r, 'last_seen_at', None) or now
-                if start is not None and last is not None:
-                    delta = (last - start).total_seconds()  # type: ignore[operator]
-                    active_int = int(max(0, delta))
-                else:
-                    active_int = stored_int or 0
-            else:
-                # Revoked session: prefer stored value, but compute fallback if missing
-                if stored_int and stored_int > 0:
-                    active_int = stored_int
-                else:
-                    start = getattr(r, 'created_at', None)
-                    last = getattr(r, 'last_seen_at', None) or getattr(r, 'revoked_at', None) or now
-                    if start is not None and last is not None:
-                        delta = (last - start).total_seconds()  # type: ignore[operator]
-                        active_int = int(max(1, delta))
-                    else:
-                        active_int = 1
-        except Exception:
-            active_int = stored_int or 0
-
-        entry = SessionEntry(
-            id=getattr(r, 'id', None),
-            created_at=(getattr(r, 'created_at').isoformat() if getattr(r, 'created_at', None) is not None else ''),
-            last_seen_at=(getattr(r, 'last_seen_at').isoformat() if getattr(r, 'last_seen_at', None) is not None else None),
-            revoked_at=(getattr(r, 'revoked_at').isoformat() if getattr(r, 'revoked_at', None) is not None else None),
-            active_seconds=active_int,
-            ip=getattr(r, 'ip', None),
-            user_agent=getattr(r, 'user_agent', None),
-        )
-        out.append(entry)
-    return out
-
-
-@router.get("/sessions/{user_id}", response_model=list[SessionEntry])
-def sessions_for_user(user_id: int, admin: models.User = Depends(require_admin), db: Session = Depends(get_db), limit: int | None = None) -> list[SessionEntry]:
-    # Admin-only: list sessions for a specific user
+def _build_session_list(db: Session, user_id: int, limit: int | None = None) -> list[SessionEntry]:
+    """Return list[SessionEntry] for given user_id (admin-facing or self), encapsulating active_seconds logic."""
     rows_q = (
         db.query(models.SessionToken)
         .filter(models.SessionToken.user_id == user_id)
@@ -708,6 +664,7 @@ def sessions_for_user(user_id: int, admin: models.User = Depends(require_admin),
         rows = rows_q.limit(limit).all()
     else:
         rows = rows_q.all()
+
     from datetime import timezone, datetime
     now = datetime.now(timezone.utc)
     out: list[SessionEntry] = []
@@ -744,6 +701,22 @@ def sessions_for_user(user_id: int, admin: models.User = Depends(require_admin),
             user_agent=getattr(r, 'user_agent', None),
         ))
     return out
+
+
+# Sessions list for current user
+
+
+@router.get("/sessions", response_model=list[SessionEntry])
+def sessions(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)) -> list[SessionEntry]:
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return _build_session_list(db, user.id)
+
+
+@router.get("/sessions/{user_id}", response_model=list[SessionEntry])
+def sessions_for_user(user_id: int, admin: models.User = Depends(require_admin), db: Session = Depends(get_db), limit: int | None = None) -> list[SessionEntry]:
+    # Admin-only: list sessions for a specific user
+    return _build_session_list(db, user_id, limit)
 
 
 @router.get("/users/search", response_model=list[UserInfo])

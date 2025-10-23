@@ -3,6 +3,7 @@ import os
 from typing import List
 from pathlib import Path
 import json
+import logging
 
 # Carga .env desde la raíz del backend aunque el cwd sea distinto (mod_wsgi)
 _HERE = Path(__file__).resolve()
@@ -108,6 +109,9 @@ JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "hso.api")
 # --- Sesiones / Cache ---
 # TTL de cache para sesiones activas por sid (segundos)
 SESSION_CACHE_TTL: int = int(os.getenv("SESSION_CACHE_TTL", "60"))
+# Single session policy: 'block' (default) will prevent new logins if an active session exists.
+# 'force' will revoke existing active sessions and allow the new login to proceed.
+SINGLE_SESSION_POLICY: str = os.getenv("SINGLE_SESSION_POLICY", "block")
 
 # --- Rate limit Auth ---
 AUTH_RATE_LIMIT_WINDOW_SECONDS: int = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SECONDS", "300"))
@@ -125,6 +129,17 @@ COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax")  # lax|strict|none
 STATIC_AUTH_ENABLED: bool = os.getenv("STATIC_AUTH_ENABLED", "false").lower() in ("1", "true", "yes", "on")  # mantenido por retrocompatibilidad
 STATIC_AUTH_EMAIL: str | None = os.getenv("STATIC_AUTH_EMAIL")
 STATIC_AUTH_PASSWORD: str | None = os.getenv("STATIC_AUTH_PASSWORD")
+
+# En producción, desactivar fallback estático por seguridad salvo que explícitamente se active en .env
+if not DEBUG:
+	STATIC_AUTH_ENABLED = False
+
+# Validación mínima de secretos críticos en tiempo de carga para evitar arranques inseguros
+_log = logging.getLogger("settings")
+if not DEBUG and (not JWT_SECRET_KEY or JWT_SECRET_KEY in ("change-me", "default", "")):
+	raise RuntimeError("JWT_SECRET_KEY must be set to a secure value in production")
+if not DEBUG and not COOKIE_SECURE:
+	_log.warning("COOKIE_SECURE is False in non-DEBUG mode; consider setting COOKIE_SECURE=true in production env")
 
 # --- Google OAuth ---
 GOOGLE_CLIENT_ID: str | None = os.getenv("GOOGLE_CLIENT_ID")

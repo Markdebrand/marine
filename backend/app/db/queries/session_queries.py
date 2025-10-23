@@ -34,7 +34,7 @@ def get_session_by_hash(db: Session, token_hash: str) -> Optional[m.SessionToken
     return db.query(m.SessionToken).filter(m.SessionToken.token_hash == token_hash).first()
 
 
-def revoke_session_token(db: Session, st: m.SessionToken, *, reason: Optional[str] = None) -> m.SessionToken:
+def revoke_session_token(db: Session, st: m.SessionToken, *, reason: Optional[str] = None, commit: bool = True) -> m.SessionToken:
     import logging
     logger = logging.getLogger("session_token")
     logger.info(f"Revocando sesión: id={getattr(st, 'id', None)}, user_id={getattr(st, 'user_id', None)}, token_hash={getattr(st, 'token_hash', None)}")
@@ -74,8 +74,9 @@ def revoke_session_token(db: Session, st: m.SessionToken, *, reason: Optional[st
     if reason:
         st.revoke_reason = reason  # type: ignore[assignment]
     db.add(st)
-    db.commit()
-    db.refresh(st)
+    if commit:
+        db.commit()
+        db.refresh(st)
     try:
         sid = getattr(st, 'token_hash', None)
         if isinstance(sid, str) and sid:

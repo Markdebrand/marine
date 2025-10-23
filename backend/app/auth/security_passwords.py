@@ -1,6 +1,9 @@
 from passlib.context import CryptContext
+import os
 
-_pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Allow configuring bcrypt rounds via env var BCRYPT_ROUNDS (default 12)
+BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
+_pwd = CryptContext(schemes=["bcrypt"], bcrypt__rounds=BCRYPT_ROUNDS, deprecated="auto")
 
 
 def hash_password(raw: str) -> str:
