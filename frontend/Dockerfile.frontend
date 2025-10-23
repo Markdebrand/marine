@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- Base ----
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
@@ -15,7 +15,7 @@ RUN if [ -f package-lock.json ]; then npm ci --omit=dev; \
     else npm install --omit=dev; fi
 
 # ---- Builder ----
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 
@@ -30,6 +30,11 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
     NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK=${NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK}
 
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+# En Debian slim instalamos herramientas de compilación que algunas dependencias
+# pueden necesitar (p. ej. módulos nativos o SWC). Si la instalación falla, el
+# comando sigue adelante gracias a '|| true' para no romper la build por apt.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential python3 ca-certificates && rm -rf /var/lib/apt/lists/* || true
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # Copia el código fuente y construye
@@ -37,15 +42,16 @@ COPY . .
 RUN npm run build
 
 # ---- Runner ----
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
     PORT=80
 WORKDIR /app
 
-# Crea usuario no root
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+# Crea usuario no root (compatible con Debian slim)
+RUN groupadd -g 1001 nodejs 2>/dev/null || true \
+ && useradd -u 1001 -r -g nodejs -d /nonexistent -s /usr/sbin/nologin nextjs 2>/dev/null || true
 
 # Copia la salida standalone + assets estáticos
 COPY --from=builder /app/.next/standalone ./
