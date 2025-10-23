@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useAuthStore, type AuthUser } from "@/store/authStore";
 import { authService } from "@/services/authService";
 
@@ -51,5 +51,7 @@ export function useAuth() {
     };
   }, [status, refreshToken]);
 
-  return { status, user };
+  const logout = useCallback(() => authService.logout(), []);
+
+  return { status, user, logout };
 }

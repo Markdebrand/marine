@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function AppHeader() {
   const pathname = usePathname();
-  const { setToken } = useAuth();
+  const { logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(
@@ -122,10 +122,8 @@ export default function AppHeader() {
               <div className="h-px bg-white/30 my-1" />
               <button
                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-white/50"
-                onClick={() => {
-                  try {
-                    setToken(null);
-                  } catch {}
+                onClick={async () => {
+                  await logout();
                   window.location.href = "/";
                 }}
               >
