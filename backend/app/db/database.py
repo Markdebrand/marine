@@ -54,9 +54,13 @@ def _set_time_zone(dbapi_connection, connection_record):  # noqa: ANN001
         cursor = dbapi_connection.cursor()
         cursor.execute("SET TIME ZONE 'UTC'")
         cursor.close()
+        dbapi_connection.commit()
     except Exception:
         # Avoid blocking startup if the role cannot change timezone
-        pass
+        try:
+            dbapi_connection.rollback()
+        except Exception:
+            pass
 
 def get_db():
     db = SessionLocal()
