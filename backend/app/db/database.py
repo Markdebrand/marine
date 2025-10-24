@@ -43,6 +43,21 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False, future=True)
 
+logger = logging.getLogger(__name__)
+DB_INIT_LOCK_ID = 926114673215
+
+
+@event.listens_for(engine, "connect")
+def _set_time_zone(dbapi_connection, connection_record):  # noqa: ANN001
+    """Ensure DB sessions operate in UTC when permissions allow."""
+    try:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("SET TIME ZONE 'UTC'")
+        cursor.close()
+    except Exception:
+        # Avoid blocking startup if the role cannot change timezone
+        pass
+
 def get_db():
     db = SessionLocal()
     try:
@@ -53,34 +68,28 @@ def get_db():
 # Simple init helper
 def init_db():
     from app.db import models  # noqa: F401 ensure models imported
-    # Ajustes al conectar: asegurar zona horaria UTC si la sesión lo permite
-    @event.listens_for(engine, "connect")
-    def _set_time_zone(dbapi_connection, connection_record):  # noqa: ANN001
+    # Serialize DDL so multiple Gunicorn workers do not race to create extensions/tables
+    with engine.connect() as raw_conn:
+        conn = raw_conn.execution_options(isolation_level="AUTOCOMMIT")
         try:
-            cursor = dbapi_connection.cursor()
-            cursor.execute("SET TIME ZONE 'UTC'")
-            cursor.close()
-        except Exception:
-            # No bloquear si falla el SET (p.ej., permisos limitados)
-            pass
-
-    # Intenta habilitar PostGIS para soportar columnas geometry
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
-            conn.commit()
-    except Exception as exc:  # pragma: no cover - depende de privilegios/extensión
-        logging.getLogger(__name__).warning("Postgres PostGIS extension not available: %s", exc)
-
-    # Crea tablas si no existen
-    Base.metadata.create_all(bind=engine)
+            conn.execute(text("SELECT pg_advisory_lock(:lock_id)"), {"lock_id": DB_INIT_LOCK_ID})
+            try:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+            except Exception as exc:  # pragma: no cover - depende de privilegios/extensión
+                logger.warning("Postgres PostGIS extension not available: %s", exc)
+            Base.metadata.create_all(bind=conn)
+        finally:
+            try:
+                conn.execute(text("SELECT pg_advisory_unlock(:lock_id)"), {"lock_id": DB_INIT_LOCK_ID})
+            except Exception:
+                pass
 
     # Prueba de conectividad simple
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception as e:  # pragma: no cover
-        logging.getLogger(__name__).error(f"Postgres connectivity check failed: {e}")
+        logger.error("Postgres connectivity check failed: %s", e)
 
     # Opcional: semilla de planes/permiso si decides mantenerla en arranque
     try:
