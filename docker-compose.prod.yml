@@ -26,6 +26,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile.backend
     restart: unless-stopped
+    expose:
+      - "8000"
     environment:
       # Database (use service name 'db')
       DB_PROFILE: prod
@@ -87,7 +89,12 @@ services:
     depends_on:
       - db
     networks:
-      - app
+      app:
+        aliases:
+          - backend-prod
+      proxy-global:
+        aliases:
+          - hsomarine-prod-backend
 
   frontend:
     container_name: hsomarine-prod-frontend
