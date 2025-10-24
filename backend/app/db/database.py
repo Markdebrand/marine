@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import create_engine, event, text, MetaData
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
@@ -62,6 +64,14 @@ def init_db():
             # No bloquear si falla el SET (p.ej., permisos limitados)
             pass
 
+    # Intenta habilitar PostGIS para soportar columnas geometry
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+            conn.commit()
+    except Exception as exc:  # pragma: no cover - depende de privilegios/extensión
+        logging.getLogger(__name__).warning("Postgres PostGIS extension not available: %s", exc)
+
     # Crea tablas si no existen
     Base.metadata.create_all(bind=engine)
 
@@ -70,7 +80,6 @@ def init_db():
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception as e:  # pragma: no cover
-        import logging
         logging.getLogger(__name__).error(f"Postgres connectivity check failed: {e}")
 
     # Opcional: semilla de planes/permiso si decides mantenerla en arranque
