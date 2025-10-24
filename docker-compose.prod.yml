@@ -116,7 +116,9 @@ networks:
   app:
     name: hsomarine-production_app
   proxy-global:
+    # Aseguramos que compose use exactamente esta red externa ya existente
     external: true
+    name: proxy-global
 
 volumes:
   pg_data: {}
