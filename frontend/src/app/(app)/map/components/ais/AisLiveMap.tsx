@@ -39,7 +39,7 @@ export default function AisLiveMap({
   const featuresRef = useRef<Map<string, AISFeature>>(new Map());
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
-  // const flushTimerRef = useRef<number | null>(null);
+  const flushTimerRef = useRef<number | null>(null);
   const lastMsgTsRef = useRef<number>(0);
   const SOURCE_ID = "vessels-source";
   const LAYER_CLUSTERS_ID = "vessels-clusters";
@@ -61,20 +61,7 @@ export default function AisLiveMap({
   const [mounted, setMounted] = useState(false);
 
 
-  // Manual refresh handler (must be outside useEffect)
-  function handleRefresh() {
-    if (!sourceReadyRef.current || !mapRef.current) return;
-    const features = Array.from(featuresRef.current.values());
-    const fc: FeatureCollection<Point, AISProps> = {
-      type: "FeatureCollection",
-      features,
-    };
-    const src = mapRef.current.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-    if (src) {
-      src.setData(fc);
-      flushNeededRef.current = false;
-    }
-  }
+
 
   useEffect(() => {
     // mark component as hydrated on client to avoid SSR/CSR mismatches
@@ -236,6 +223,31 @@ export default function AisLiveMap({
       else mapRef.current?.once("load", onLoad);
 
       // No auto flush, handled by refresh button
+      // Throttled flush to update source data in batches
+      const startFlush = () => {
+        if (flushTimerRef.current != null) return;
+        flushTimerRef.current = window.setInterval(() => {
+          if (
+            !flushNeededRef.current ||
+            !sourceReadyRef.current ||
+            !mapRef.current
+          )
+            return;
+          const features = Array.from(featuresRef.current.values());
+          const fc: FeatureCollection<Point, AISProps> = {
+            type: "FeatureCollection",
+            features,
+          };
+          const src = mapRef.current.getSource(SOURCE_ID) as
+            | GeoJSONSource
+            | undefined;
+          if (src) {
+            src.setData(fc);
+            flushNeededRef.current = false;
+          }
+        }, 250);
+      };
+      startFlush();
   // Manual refresh handler
 
 
@@ -390,13 +402,7 @@ export default function AisLiveMap({
   return (
     <div className="fixed inset-0 z-0">
       <div ref={mapEl} className="w-full h-full">
-        {/* Botón de refresh */}
-        <button
-          onClick={handleRefresh}
-          className="absolute top-20 left-4 z-50 bg-white/80 hover:bg-white text-red-600 font-bold py-2 px-4 rounded shadow border border-red-200"
-        >
-          Refresh barcos
-        </button>
+
         {/* Diagnostics panel */}
         <div className="absolute top-24 right-4 z-50 w-80 text-xs">
           <div className="glass-card p-3 rounded-md border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
