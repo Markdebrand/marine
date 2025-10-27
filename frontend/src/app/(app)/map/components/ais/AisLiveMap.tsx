@@ -62,17 +62,45 @@ export default function AisLiveMap({
 
 
   // Manual refresh handler (must be outside useEffect)
-  function handleRefresh() {
+  async function handleRefresh() {
     if (!sourceReadyRef.current || !mapRef.current) return;
-    const features = Array.from(featuresRef.current.values());
-    const fc: FeatureCollection<Point, AISProps> = {
-      type: "FeatureCollection",
-      features,
-    };
-    const src = mapRef.current.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-    if (src) {
-      src.setData(fc);
-      flushNeededRef.current = false;
+    try {
+      // Fetch latest vessels from backend
+      const res = await fetch("/api/ais/positions");
+      if (!res.ok) throw new Error("No se pudo obtener barcos");
+      const data = await res.json();
+      // Espera un array de objetos tipo { id, lon, lat, cog, sog, name }
+      featuresRef.current.clear();
+      for (const v of data) {
+        if (!Number.isFinite(v.lon) || !Number.isFinite(v.lat)) continue;
+        const id = String(v.id);
+        const feat: AISFeature = {
+          type: "Feature",
+          id,
+          properties: { name: v.name, sog: v.sog, cog: v.cog },
+          geometry: { type: "Point", coordinates: [v.lon, v.lat] },
+        };
+        featuresRef.current.set(id, feat);
+      }
+      // Actualiza el mapa
+      const features = Array.from(featuresRef.current.values());
+      const fc: FeatureCollection<Point, AISProps> = {
+        type: "FeatureCollection",
+        features,
+      };
+      const src = mapRef.current.getSource(SOURCE_ID) as GeoJSONSource | undefined;
+      if (src) {
+        src.setData(fc);
+        flushNeededRef.current = false;
+      }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+          ? err
+          : "Unknown error";
+      alert("Error al refrescar barcos: " + message);
     }
   }
 
