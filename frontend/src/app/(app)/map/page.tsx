@@ -25,7 +25,7 @@ export default function MapPage() {
         }
       >
         <Protected>
-          <AisLiveMap token={process.env.NEXT_PUBLIC_AISSTREAM_KEY ?? ""} />
+          <AisLiveMap />
         </Protected>
       </Suspense>
     </>

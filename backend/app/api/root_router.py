@@ -45,6 +45,12 @@ try:
 	from app.integrations.odoo.odoo_router import router as odoo_integration_router  # /odoo (API proxy)
 except Exception:
 	odoo_integration_router = None  # type: ignore
+try:
+	from app.integrations.aisstream.router import router as aisstream_router
+except Exception:
+	aisstream_router = None  # pragma: no cover - optional in some envs
+if 'aisstream_router' in globals() and aisstream_router:
+	router.include_router(aisstream_router)
 
 # Incluir routers en el agregador
 router.include_router(auth_router)
@@ -87,11 +93,3 @@ except Exception:
 	preferences_router = None  # type: ignore
 if 'preferences_router' in globals() and preferences_router:
 	router.include_router(preferences_router)
-
-# AIS test endpoints (dev/testing)
-try:
-	from app.api.ais_router import router as ais_router
-except Exception:
-	ais_router = None  # pragma: no cover - optional in some envs
-if 'ais_router' in globals() and ais_router:
-	router.include_router(ais_router)
