@@ -86,6 +86,9 @@ services:
       MS_TRANSLATOR_KEY: ${MS_TRANSLATOR_KEY}
       MS_TRANSLATOR_REGION: ${MS_TRANSLATOR_REGION}
 
+      # AIS Stream
+      AISSTREAM_API_KEY: ${AISSTREAM_API_KEY}
+
     depends_on:
       - db
     networks:
@@ -103,7 +106,6 @@ services:
       dockerfile: Dockerfile.frontend
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://marine.hsotrade.com/api}
-        NEXT_PUBLIC_AISSTREAM_KEY: ${NEXT_PUBLIC_AISSTREAM_KEY}
         NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-https://marine.hsotrade.com}
         NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK: ${NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK}
     restart: unless-stopped
