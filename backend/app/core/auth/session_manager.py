@@ -7,7 +7,16 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
-from app.config.settings import AUTH_COOKIES_ENABLED, JWT_AUDIENCE, JWT_ALGORITHM, JWT_SECRET_KEY, SESSION_CACHE_TTL
+from app.config.settings import (
+    AUTH_COOKIES_ENABLED,
+    JWT_AUDIENCE,
+    JWT_ALGORITHM,
+    JWT_SECRET_KEY,
+    SESSION_CACHE_TTL,
+    STATIC_AUTH_EMAIL,
+    STATIC_AUTH_ROLE,
+    STATIC_AUTH_SUPERADMIN,
+)
 from app.utils.adapters.cache_adapter import get_cache, set_cache, clear_cache, is_redis_enabled
 import logging
 diag_logger = logging.getLogger("app.auth.session_diag")
@@ -74,8 +83,16 @@ def get_current_user(request: Request, payload: dict = Depends(get_token_payload
     if not sub:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token sin sub")
     if str(sub) == "0":
-        # minimal pseudo user for static auth
-        return m.User(id=0, email="static@example.com", password_hash="")  # type: ignore[arg-type]
+        # Static auth pseudo user (local dev fallback)
+        email = STATIC_AUTH_EMAIL or "static@example.com"
+        return m.User(  # type: ignore[arg-type]
+            id=0,
+            email=email,
+            password_hash="",
+            role=STATIC_AUTH_ROLE,
+            is_superadmin=STATIC_AUTH_SUPERADMIN,
+            is_active=True,
+        )
     try:
         uid = int(sub)
     except Exception:

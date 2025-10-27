@@ -21,6 +21,8 @@ from app.config.settings import (
     STATIC_AUTH_EMAIL,
     STATIC_AUTH_PASSWORD,
     STATIC_AUTH_ENABLED,
+    STATIC_AUTH_ROLE,
+    STATIC_AUTH_SUPERADMIN,
     DEBUG,
     AUTH_COOKIES_ENABLED,
     COOKIE_DOMAIN,
@@ -145,8 +147,8 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
         if static_ok:
             if DEBUG:
                 logging.getLogger(__name__).info("Static auth fallback successful for configured user")
-            # pseudo-user has no role; omit claim
-            token = create_access_token("0", role=None, is_superadmin=False)
+            # Include configured role/superadmin flags for local-only static login
+            token = create_access_token("0", role=STATIC_AUTH_ROLE, is_superadmin=STATIC_AUTH_SUPERADMIN)
             try:
                 ip = request.client.host if request and request.client else "-"
                 ua = request.headers.get("user-agent", "-") if request else "-"
@@ -356,14 +358,32 @@ def _build_profile_response(db: Session, user: models.User) -> ProfileResponse:
 
 @router.get("/me", response_model=ProfileResponse)
 def me(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)) -> ProfileResponse:
-    # Cachear perfil 60s
+    # Si está activada la autenticación estática, devolvemos un perfil fijo y NO tocamos la base de datos
+    from app.config.settings import STATIC_AUTH_ENABLED, STATIC_AUTH_EMAIL, STATIC_AUTH_ROLE, STATIC_AUTH_SUPERADMIN
+    if STATIC_AUTH_ENABLED:
+        return ProfileResponse(
+            id=0,
+            email=STATIC_AUTH_EMAIL,
+            role=STATIC_AUTH_ROLE or "user",
+            is_superadmin=STATIC_AUTH_SUPERADMIN,
+            first_name=None,
+            last_name=None,
+            phone=None,
+            company=None,
+            website=None,
+            bio=None,
+            plan_code=None,
+            plan_name=None,
+            subscription_id=None,
+            subscription_status=None,
+        )
+    # Si no, comportamiento normal (con cache)
     try:
         key = f"profile:{int(getattr(user,'id'))}"
         cached = get_cache(key)
         if cached:
             return cached  # type: ignore[return-value]
         resp = _build_profile_response(db, user)
-        # Guardar como dict para robustez de serialización
         set_cache(key, resp, 60)
         return resp
     except Exception:

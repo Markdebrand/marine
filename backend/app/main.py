@@ -1,5 +1,6 @@
 
 from contextlib import asynccontextmanager
+import logging
 from fastapi import FastAPI
 from app.config.settings import (
     APP_NAME,
@@ -19,6 +20,7 @@ from app.config.settings import AISSTREAM_ENABLED, AISSTREAM_API_KEY, AISSTREAM_
 from redis import Redis
 import time
 from app.integrations.aisstream.service import AISBridgeService
+from app.integrations.aisstream.simulator import AISSimpleSimulator
 
 def add_middlewares(app):
     from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -77,6 +79,14 @@ async def lifespan(app: FastAPI):
     sio_asgi = socketio.ASGIApp(sio_server, socketio_path="/socket.io")
     app.state.sio_server = sio_server
     app.state.sio_asgi = sio_asgi
+    # Basic Socket.IO connect/disconnect logs to debug connection churn
+    @sio_server.event
+    async def connect(sid, environ, auth=None):  # noqa: ANN001
+        logging.getLogger("socketio").info("client connected sid=%s", sid)
+
+    @sio_server.event
+    async def disconnect(sid):  # noqa: ANN001
+        logging.getLogger("socketio").info("client disconnected sid=%s", sid)
     try:
         init_db()
     except Exception as e:
@@ -84,6 +94,7 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).error(f"DB init failed: {e}")
     # Si AISStream está habilitado y tiene API key, usamos AISStream en lugar del simulador local
     bridge: AISBridgeService | None = None
+    simulator: AISSimpleSimulator | None = None
     lock_owner = False
     redis_client = None
     try:
@@ -106,12 +117,21 @@ async def lifespan(app: FastAPI):
         if not redis_client or lock_owner:
             bridge = AISBridgeService(sio_server, AISSTREAM_API_KEY)
             await bridge.start()
+    else:
+        # Development fallback: emit simulated vessels if no AIS key present
+        try:
+            from app.config.settings import DEBUG
+        except Exception:
+            DEBUG = True  # default to True for safety in dev
+        if DEBUG:
+            simulator = AISSimpleSimulator(sio_server, vessel_count=40)
+            await simulator.start()
     yield
     # Apagado ordenado
     if bridge is not None:
         await bridge.stop()
-    if bridge is not None:
-        await bridge.stop()
+    if simulator is not None:
+        await simulator.stop()
 
 def create_app() -> FastAPI:
     app = FastAPI(

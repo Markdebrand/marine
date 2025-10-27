@@ -135,6 +135,20 @@ Endpoints:
 Nota:
 - El registro de usuarios está deshabilitado en esta versión (no existe `/auth/register`). El alta de usuarios se gestiona fuera del flujo público.
 
+### Usuario estático (solo desarrollo)
+
+Para probar el login sin base de datos puedes habilitar un usuario fijo vía `.env`:
+
+```
+STATIC_AUTH_ENABLED=true
+STATIC_AUTH_EMAIL=admin@example.com
+STATIC_AUTH_PASSWORD=Secret123*
+STATIC_AUTH_ROLE=admin
+STATIC_AUTH_SUPERADMIN=true
+```
+
+Con estas variables la API aceptará `admin@example.com / Secret123*` y emitirá un JWT con rol `admin`. Nunca actives esta opción en producción.
+
 Seeding automático:
 - Planes base (incluye "started").
 - Usuario admin admin@example.com / Admin123! y organización "HSO Admin".

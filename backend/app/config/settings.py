@@ -129,6 +129,10 @@ COOKIE_SAMESITE: str = os.getenv("COOKIE_SAMESITE", "lax")  # lax|strict|none
 STATIC_AUTH_ENABLED: bool = os.getenv("STATIC_AUTH_ENABLED", "false").lower() in ("1", "true", "yes", "on")  # mantenido por retrocompatibilidad
 STATIC_AUTH_EMAIL: str | None = os.getenv("STATIC_AUTH_EMAIL")
 STATIC_AUTH_PASSWORD: str | None = os.getenv("STATIC_AUTH_PASSWORD")
+STATIC_AUTH_ROLE: str = os.getenv("STATIC_AUTH_ROLE", "user").strip().lower() or "user"
+if STATIC_AUTH_ROLE not in ("admin", "user", "cliente"):
+	STATIC_AUTH_ROLE = "user"
+STATIC_AUTH_SUPERADMIN: bool = os.getenv("STATIC_AUTH_SUPERADMIN", "false").lower() in ("1", "true", "yes", "on")
 
 # En producción, desactivar fallback estático por seguridad salvo que explícitamente se active en .env
 if not DEBUG:

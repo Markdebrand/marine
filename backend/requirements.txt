@@ -3,7 +3,6 @@ click==8.1.7
 colorama==0.4.6
 email-validator
 fastapi==0.116.1
-uvicorn==0.35.0
 gunicorn==22.0.0
 python-dotenv
 pydantic==2.11.7
@@ -27,4 +26,6 @@ typer==0.12.5
 redis==5.0.8
 requests==2.32.3
 python-socketio==5.11.4
+uvicorn==0.23.2
+websockets==10.4
 aiohttp==3.10.10

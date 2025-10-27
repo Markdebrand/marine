@@ -276,16 +276,21 @@ export default function AisLiveMap({
       let socketConnected = false;
       let fallbackTimer: number | null = null;
       const disableWsFallback =
-        process.env.NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK === "true";
+        process.env.NEXT_PUBLIC_DISABLE_AIS_WS_FALLBACK === "true" ||
+        process.env.NEXT_PUBLIC_FORCE_POLLING === "true";
 
       try {
         const { io } = await import("socket.io-client");
         // Prefer explicit backend URL in dev to avoid 404 from Next dev server
         const baseUrl =
           process.env.NEXT_PUBLIC_BACKEND_URL ?? window.location.origin;
+        const forcePolling =
+          process.env.NEXT_PUBLIC_FORCE_POLLING === "true";
+        // Prefer starting with polling, then upgrade to websocket unless forced polling-only
         socket = io(baseUrl, {
           path: "/socket.io",
-          transports: ["websocket", "polling"],
+          transports: forcePolling ? ["polling"] : ["polling", "websocket"],
+          upgrade: !forcePolling,
         });
         // Handle connect
         socket.on("connect", () => {
