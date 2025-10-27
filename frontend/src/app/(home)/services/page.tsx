@@ -33,7 +33,7 @@ export default function ServicesPage() {
           </div>
           <div className="rounded-2xl overflow-hidden shadow-sm">
             <Image
-              src="/DevelopedMDB.webp"
+              src="/HSOMarineLogo.svg"
               alt="Servicios"
               width={960}
               height={640}

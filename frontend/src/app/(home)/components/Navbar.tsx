@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -63,6 +63,8 @@ function Navbar() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const linksContainerRef = useRef<HTMLDivElement | null>(null);
+  const [indicator, setIndicator] = useState({ left: 0, width: 0, opacity: 0 });
   // Evitar mismatch SSR/CSR: mantener href estable en SSR y cambiar tras montar
   const ctaHref = mounted && status === "authenticated" ? "/map" : "/login";
 
@@ -75,6 +77,44 @@ function Navbar() {
 
   // Marcar como montado para poder cambiar CTA sin causar hydration error
   useEffect(() => setMounted(true), []);
+
+  useLayoutEffect(() => {
+    if (!mounted) return;
+    const update = () => {
+      const container = linksContainerRef.current;
+      if (!container) return setIndicator((s) => ({ ...s, opacity: 0 }));
+      // Find active link by matching href; choose longest matching prefix
+      let activeHref: string | null = null;
+      for (const l of NAV_LINKS) {
+        if (l.href === "/" && pathname === "/") {
+          activeHref = l.href;
+        } else if (l.href !== "/" && pathname?.startsWith(l.href)) {
+          activeHref = l.href;
+          break;
+        }
+      }
+      // fallback to exact match
+      if (!activeHref) {
+        for (const l of NAV_LINKS) if (l.href === pathname) activeHref = l.href;
+      }
+      if (!activeHref) return setIndicator((s) => ({ ...s, opacity: 0 }));
+      const anchor = container.querySelector<HTMLAnchorElement>(`a[href="${activeHref}"]`);
+      if (!anchor) return setIndicator((s) => ({ ...s, opacity: 0 }));
+      const linkRect = anchor.getBoundingClientRect();
+      const contRect = container.getBoundingClientRect();
+      const left = Math.round(linkRect.left - contRect.left);
+      const width = Math.round(linkRect.width);
+      setIndicator({ left, width, opacity: 1 });
+    };
+    update();
+    window.addEventListener("resize", update);
+    // also update after a short timeout to allow layout shifts
+    const t = window.setTimeout(update, 120);
+    return () => {
+      window.removeEventListener("resize", update);
+      clearTimeout(t);
+    };
+  }, [pathname, mounted]);
 
   return (
     <header className="w-full bg-transparent sticky top-0 z-50 pt-3">
@@ -89,8 +129,15 @@ function Navbar() {
             className="flex items-center gap-3 text-slate-900"
             aria-label="Go home"
           >
-            {/* Show wordmark on sm+ screens: keep it inline and constrained to avoid large gaps */}
-            <div className="hidden sm:flex flex-col leading-none">
+            {/* Compact logo for small screens, wordmark for lg+ */}
+            <Image
+              src="/HSOMarineLogo.svg"
+              alt="HSO"
+              width={32}
+              height={32}
+              className="h-10 w-auto block lg:hidden"
+            />
+            <div className="hidden lg:flex flex-col leading-none">
               <Image
                 src="/HSOMarineLogo.svg"
                 alt="HSO MARINE"
@@ -101,7 +148,16 @@ function Navbar() {
             </div>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-2 text-[16px]">
+          <div
+            ref={linksContainerRef}
+            className="hidden lg:flex items-center gap-6 text-[16px] relative pb-3"
+          >
+            {/* sliding indicator */}
+            <div
+              aria-hidden
+              className="absolute bottom-0 left-0 h-0.5 bg-red-600 rounded transition-all duration-300"
+              style={{ left: indicator.left, width: indicator.width, opacity: indicator.opacity }}
+            />
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -115,7 +171,7 @@ function Navbar() {
                 className={`transition-colors hover:text-red-600 ${
                   pathname === link.href ||
                   (link.href !== "/" && pathname.startsWith(link.href))
-                    ? "underline underline-offset-8 decoration-2 decoration-red-600 text-red-600"
+                    ? "text-red-600"
                     : "text-slate-800"
                 }`}
               >
@@ -126,17 +182,17 @@ function Navbar() {
         </div>
 
         {/* Right controls (pushed to the far right) */}
-        <div className="hidden md:flex items-center gap-4 text-[16px] ml-auto">
+          <div className="hidden lg:flex items-center gap-4 text-[16px] ml-auto">
           <a
-            href="tel:+16625639786"
-            className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-slate-800"
+              href="tel:+16625639786"
+              className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-slate-800"
           >
             <Phone className="h-4 w-4" />
             <span className="whitespace-nowrap">+1 (662) 563-9786</span>
           </a>
           <button
             aria-label="Language"
-            className="hidden md:inline-flex items-center justify-center text-slate-600 hover:text-slate-800"
+            className="hidden lg:inline-flex items-center justify-center text-slate-600 hover:text-slate-800"
           >
             <Globe className="h-4 w-4" />
           </button>
@@ -153,18 +209,16 @@ function Navbar() {
             href={ctaHref}
             className="inline-flex items-center rounded-xl bg-red-600 px-6 py-3 text-white text-base font-medium hover:bg-red-700 shadow ml-6"
           >
-            Start Trade
+            Start Marine
           </Link>
         </div>
 
         {/* Mobile header: show logo + quick controls (phone, login) and menu toggle */}
-        <div className="lg:hidden flex items-center w-full gap-3">
-          <Link href="/" className="flex items-center gap-2" aria-label="Go home">
-            <Image src="/HSOMarineLogo.svg" alt="HSO" width={32} height={32} className="h-10 w-auto" />
-          </Link>
+        <div className="lg:hidden flex items-center gap-3">
+          {/* Mobile header controls (logo moved to left link to avoid duplication) */}
 
           <div className="ml-auto flex items-center gap-2">
-            <a href="tel:+16625639786" className="hidden sm:inline-flex items-center gap-2 text-slate-600 hover:text-slate-800">
+              <a href="tel:+16625639786" className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-800">
               <Phone className="h-4 w-4" />
             </a>
 
@@ -204,7 +258,7 @@ function Navbar() {
                 className={`transition-colors hover:text-red-600 ${
                   pathname === link.href ||
                   (link.href !== "/" && pathname.startsWith(link.href))
-                    ? "underline underline-offset-6 decoration-2 decoration-red-600 text-red-600"
+                    ? "text-red-600"
                     : "text-slate-800"
                 }`}
                 onClick={() => setIsMenuOpen(false)}
@@ -218,7 +272,7 @@ function Navbar() {
                 href={ctaHref}
                 className="inline-flex items-center rounded-xl bg-red-600 px-6 py-3 text-white text-base font-medium hover:bg-red-700 w-full justify-center shadow"
               >
-                Start Trade
+                Start Marine
               </Link>
             </div>
           </div>
