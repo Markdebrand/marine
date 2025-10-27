@@ -4,7 +4,6 @@ import type {
   Map as MLMap,
   GeoJSONSource,
   MapGeoJSONFeature,
-  CircleLayerSpecification,
   SymbolLayerSpecification,
   GeoJSONSourceSpecification,
   StyleSpecification,
@@ -40,12 +39,14 @@ export default function AisLiveMap({
   const featuresRef = useRef<Map<string, AISFeature>>(new Map());
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
-  const flushTimerRef = useRef<number | null>(null);
+  // const flushTimerRef = useRef<number | null>(null);
   const lastMsgTsRef = useRef<number>(0);
   const SOURCE_ID = "vessels-source";
   const LAYER_CLUSTERS_ID = "vessels-clusters";
   const LAYER_CLUSTER_COUNT_ID = "vessels-cluster-count";
   const LAYER_UNCLUSTERED_ID = "vessels-unclustered";
+  const LAYER_SHIP_SYMBOL_ID = "vessels-ship-symbol";
+  const SHIP_IMAGE_ID = "ship-icon";
 
   // const [connected, setConnected] = useState(false);
   // const [vesselCount, setVesselCount] = useState(0);
@@ -58,6 +59,22 @@ export default function AisLiveMap({
 
   const [hydrated, setHydrated] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+
+  // Manual refresh handler (must be outside useEffect)
+  function handleRefresh() {
+    if (!sourceReadyRef.current || !mapRef.current) return;
+    const features = Array.from(featuresRef.current.values());
+    const fc: FeatureCollection<Point, AISProps> = {
+      type: "FeatureCollection",
+      features,
+    };
+    const src = mapRef.current.getSource(SOURCE_ID) as GeoJSONSource | undefined;
+    if (src) {
+      src.setData(fc);
+      flushNeededRef.current = false;
+    }
+  }
 
   useEffect(() => {
     // mark component as hydrated on client to avoid SSR/CSR mismatches
@@ -114,28 +131,60 @@ export default function AisLiveMap({
               features: [],
             } as FeatureCollection<Point, AISProps>,
             promoteId: "id",
-            cluster: true, // Desactivado para que los iconos no desaparezcan
-            clusterRadius: 50,
-            clusterMaxZoom: 12,
+            cluster: false, // Desactivado para que los iconos no desaparezcan
+            // clusterRadius: 50,
+            // clusterMaxZoom: 12,
           } as unknown as GeoJSONSourceSpecification;
           mapRef.current!.addSource(SOURCE_ID, sourceSpec);
         }
-        // Unclustered points
-        if (!mapRef.current?.getLayer(LAYER_UNCLUSTERED_ID)) {
-          const unclusteredLayer: CircleLayerSpecification = {
-            id: LAYER_UNCLUSTERED_ID,
-            type: "circle",
-            source: SOURCE_ID,
-            filter: ["!", ["has", "point_count"]],
-            paint: {
-              "circle-radius": 5,
-              "circle-color": "#ef4444",
-              "circle-stroke-color": "#ffffff",
-              "circle-stroke-width": 2,
-              "circle-opacity": 0.9,
-            },
-          };
-          mapRef.current!.addLayer(unclusteredLayer);
+
+        // Add ship icon image to map
+        if (mapRef.current) {
+          if (!mapRef.current.hasImage(SHIP_IMAGE_ID)) {
+            const img = new window.Image(32, 32);
+            img.onload = () => {
+              try {
+                if (!mapRef.current) return;
+                mapRef.current.addImage(SHIP_IMAGE_ID, img, { pixelRatio: 2 });
+                // Add SymbolLayer after image is loaded
+                if (!mapRef.current.getLayer(LAYER_SHIP_SYMBOL_ID)) {
+                  const symbolLayer: SymbolLayerSpecification = {
+                    id: LAYER_SHIP_SYMBOL_ID,
+                    type: "symbol",
+                    source: SOURCE_ID,
+                    filter: ["!", ["has", "point_count"]],
+                    layout: {
+                      "icon-image": SHIP_IMAGE_ID,
+                      "icon-size": 1,
+                      "icon-allow-overlap": true,
+                      "icon-rotate": ["get", "cog"],
+                    },
+                    paint: {},
+                  };
+                  mapRef.current.addLayer(symbolLayer);
+                }
+              } catch {}
+            };
+            img.src = "/images/ship.svg";
+          } else {
+            // Add SymbolLayer if image already loaded
+            if (!mapRef.current.getLayer(LAYER_SHIP_SYMBOL_ID)) {
+              const symbolLayer: SymbolLayerSpecification = {
+                id: LAYER_SHIP_SYMBOL_ID,
+                type: "symbol",
+                source: SOURCE_ID,
+                filter: ["!", ["has", "point_count"]],
+                layout: {
+                  "icon-image": SHIP_IMAGE_ID,
+                  "icon-size": 1,
+                  "icon-allow-overlap": true,
+                  "icon-rotate": ["get", "cog"],
+                },
+                paint: {},
+              };
+              mapRef.current.addLayer(symbolLayer);
+            }
+          }
         }
         sourceReadyRef.current = true;
 
@@ -186,31 +235,9 @@ export default function AisLiveMap({
       if (mapRef.current?.loaded()) onLoad();
       else mapRef.current?.once("load", onLoad);
 
-      // Throttled flush to update source data in batches
-      const startFlush = () => {
-        if (flushTimerRef.current != null) return;
-        flushTimerRef.current = window.setInterval(() => {
-          if (
-            !flushNeededRef.current ||
-            !sourceReadyRef.current ||
-            !mapRef.current
-          )
-            return;
-          const features = Array.from(featuresRef.current.values());
-          const fc: FeatureCollection<Point, AISProps> = {
-            type: "FeatureCollection",
-            features,
-          };
-          const src = mapRef.current.getSource(SOURCE_ID) as
-            | GeoJSONSource
-            | undefined;
-          if (src) {
-            src.setData(fc);
-            flushNeededRef.current = false;
-          }
-        }, 250);
-      };
-      startFlush();
+      // No auto flush, handled by refresh button
+  // Manual refresh handler
+
 
 
       // Solo conectar a backend vía Socket.IO
@@ -327,11 +354,10 @@ export default function AisLiveMap({
         // Close direct WS
         wsRef.current?.close();
         wsRef.current = null;
-        if (flushTimerRef.current != null) {
-          window.clearInterval(flushTimerRef.current);
-          flushTimerRef.current = null;
-        }
+        // Remove layers before removing source
         try {
+          if (mapRef.current?.getLayer(LAYER_SHIP_SYMBOL_ID))
+            mapRef.current.removeLayer(LAYER_SHIP_SYMBOL_ID);
           if (mapRef.current?.getLayer(LAYER_CLUSTER_COUNT_ID))
             mapRef.current.removeLayer(LAYER_CLUSTER_COUNT_ID);
           if (mapRef.current?.getLayer(LAYER_CLUSTERS_ID))
@@ -364,6 +390,13 @@ export default function AisLiveMap({
   return (
     <div className="fixed inset-0 z-0">
       <div ref={mapEl} className="w-full h-full">
+        {/* Botón de refresh */}
+        <button
+          onClick={handleRefresh}
+          className="absolute top-20 left-4 z-50 bg-white/80 hover:bg-white text-red-600 font-bold py-2 px-4 rounded shadow border border-red-200"
+        >
+          Refresh barcos
+        </button>
         {/* Diagnostics panel */}
         <div className="absolute top-24 right-4 z-50 w-80 text-xs">
           <div className="glass-card p-3 rounded-md border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
