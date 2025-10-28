@@ -4,6 +4,7 @@ from typing import List
 from pathlib import Path
 import json
 import logging
+from urllib.parse import urlsplit
 
 # Carga .env desde la raíz del backend aunque el cwd sea distinto (mod_wsgi)
 _HERE = Path(__file__).resolve()
@@ -41,6 +42,29 @@ def _float_from_env(var_name: str) -> float | None:
 		return None
 
 
+def _normalize_origin(origin: str) -> str | None:
+	origin = (origin or "").strip()
+	if not origin:
+		return None
+	if origin == "*":
+		return origin
+	try:
+		parts = urlsplit(origin)
+	except ValueError:
+		return origin
+	if parts.scheme and parts.netloc:
+		return f"{parts.scheme}://{parts.netloc}"
+	return origin
+
+
+def _append_origin(origins: List[str], origin: str | None) -> None:
+	if not origin:
+		return
+	norm = _normalize_origin(origin)
+	if norm and norm not in origins:
+		origins.append(norm)
+
+
 # --- App settings ---
 APP_NAME: str = os.getenv("APP_NAME", "HSOMarine API")
 DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("1", "true", "yes", "on")
@@ -50,6 +74,14 @@ ROOT_PATH: str = os.getenv("ROOT_PATH", "")
 # CORS y seguridad
 # Por defecto permitimos localhost:3000 y 127.0.0.1:3000 (Next.js) en desarrollo si no se define CORS_ORIGINS
 CORS_ORIGINS: List[str] = _list_from_env("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+_normalized_origins: List[str] = []
+for _origin in CORS_ORIGINS:
+	norm = _normalize_origin(_origin)
+	if not norm:
+		continue
+	if norm not in _normalized_origins:
+		_normalized_origins.append(norm)
+CORS_ORIGINS = _normalized_origins
 ALLOWED_HOSTS: List[str] = _list_from_env("ALLOWED_HOSTS", "")
 
 # Documentación sólo visible en DEBUG
@@ -182,8 +214,10 @@ GOOGLE_CLIENT_SECRET: str | None = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI: str | None = os.getenv("GOOGLE_REDIRECT_URI")
 # Frontend URL used to redirect users after OAuth when not using popup. Change in .env if needed.
 FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+_append_origin(CORS_ORIGINS, FRONTEND_URL)
 # Public app URL (alias for compatibility with docs/integrations)
 APP_PUBLIC_URL: str = os.getenv("APP_PUBLIC_URL", FRONTEND_URL)
+_append_origin(CORS_ORIGINS, APP_PUBLIC_URL)
 ODOO_WEBHOOK_SECRET: str = os.getenv("ODOO_WEBHOOK_SECRET", "")
 OD00_WEBHOOK_DEDUPE_TTL = os.getenv("OD00_WEBHOOK_DEDUPE_TTL")  # legado typo guard
 ODOO_WEBHOOK_DEDUPE_TTL: int = int(os.getenv("ODOO_WEBHOOK_DEDUPE_TTL", OD00_WEBHOOK_DEDUPE_TTL or "600"))
