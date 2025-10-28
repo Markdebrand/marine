@@ -46,6 +46,7 @@ class AISBridgeService:
                                 "lat": lat,
                                 "lon": lon,
                             })
+                    logging.info(f"[SOCKET.IO] Emitting ais_position_batch with {len(positions)} ships to all clients")
                     await self.sio_server.emit("ais_position_batch", {"positions": positions})
                 except Exception as e:
                     logging.error(f"Error enviando batch AIS: {e}")
@@ -74,20 +75,28 @@ class AISBridgeService:
                                     log_line = f"[{datetime.now(timezone.utc)}] ShipId: {ship_id} Latitude: {lat} Longitude: {lon}"
                                     logging.info(log_line)
                                     # Mantener historial
+                                    emitir = False
                                     if ship_id not in self._ships:
                                         self._ships[ship_id] = []
+                                        emitir = True  # Primera vez que llega este barco
+                                    else:
+                                        # Solo emitir si la posición cambió respecto a la última
+                                        last_pos = self._ships[ship_id][-1] if self._ships[ship_id] else None
+                                        if last_pos is None or last_pos[0] != lat or last_pos[1] != lon:
+                                            emitir = True
                                     self._ships[ship_id].append([lat, lon])
                                     if len(self._ships[ship_id]) > 100:
                                         self._ships[ship_id] = self._ships[ship_id][-100:]
-                                    # Emitir evento a todos los clientes conectados
-                                    # Emitir con la misma forma que consume el frontend (id, lat, lon)
-                                    await self.sio_server.emit("ais_position", {
-                                        "id": ship_id,
-                                        "lat": lat,
-                                        "lon": lon,
-                                        # histórico opcional (no usado por el cliente pero útil para debug)
-                                        "positions": self._ships[ship_id],
-                                    })
+                                    if emitir:
+                                        # Emitir evento a todos los clientes conectados
+                                        logging.info(f"[SOCKET.IO] Emitting ais_position for ship {ship_id} at {lat},{lon}")
+                                        await self.sio_server.emit("ais_position", {
+                                            "id": ship_id,
+                                            "lat": lat,
+                                            "lon": lon,
+                                            # histórico opcional (no usado por el cliente pero útil para debug)
+                                            "positions": self._ships[ship_id],
+                                        })
                             except Exception as e:
                                 logging.error(f"Error procesando mensaje AISSTREAM: {e}")
                     finally:
