@@ -21,6 +21,26 @@ def _list_from_env(var_name: str, default: str = "") -> List[str]:
 	return items
 
 
+def _int_from_env(var_name: str) -> int | None:
+	value = os.getenv(var_name)
+	if value is None or value.strip() == "":
+		return None
+	try:
+		return int(value)
+	except ValueError:
+		return None
+
+
+def _float_from_env(var_name: str) -> float | None:
+	value = os.getenv(var_name)
+	if value is None or value.strip() == "":
+		return None
+	try:
+		return float(value)
+	except ValueError:
+		return None
+
+
 # --- App settings ---
 APP_NAME: str = os.getenv("APP_NAME", "HSOMarine API")
 DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("1", "true", "yes", "on")
@@ -57,6 +77,17 @@ ODOO_STAGING_PASSWORD: str | None = os.getenv("ODOO_STAGING_PASSWORD")
 # --- Cache / Redis (opcional) ---
 # Redis para cache compartida entre workers (si se configura)
 REDIS_URL: str | None = os.getenv("REDIS_URL")
+_redis_pool_max_connections_raw = _int_from_env("REDIS_POOL_MAX_CONNECTIONS")
+if _redis_pool_max_connections_raw is None:
+	REDIS_POOL_MAX_CONNECTIONS: int | None = 200
+elif _redis_pool_max_connections_raw <= 0:
+	REDIS_POOL_MAX_CONNECTIONS = None
+else:
+	REDIS_POOL_MAX_CONNECTIONS = _redis_pool_max_connections_raw
+REDIS_POOL_SOCKET_TIMEOUT: float | None = _float_from_env("REDIS_POOL_SOCKET_TIMEOUT")
+REDIS_POOL_SOCKET_CONNECT_TIMEOUT: float | None = _float_from_env("REDIS_POOL_SOCKET_CONNECT_TIMEOUT")
+REDIS_POOL_HEALTH_CHECK_INTERVAL: int | None = _int_from_env("REDIS_POOL_HEALTH_CHECK_INTERVAL")
+REDIS_POOL_RETRY_ON_TIMEOUT: bool = os.getenv("REDIS_POOL_RETRY_ON_TIMEOUT", "true").lower() in ("1", "true", "yes", "on")
 
 # --- Base de Datos: Postgres (producción / local) ---
 DB_PROFILE = os.getenv("DB_PROFILE", "prod").lower()  # prod | local

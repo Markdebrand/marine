@@ -11,6 +11,11 @@ from app.config.settings import (
     OPENAPI_URL,
     ROOT_PATH,
     REDIS_URL,
+    REDIS_POOL_MAX_CONNECTIONS,
+    REDIS_POOL_SOCKET_TIMEOUT,
+    REDIS_POOL_SOCKET_CONNECT_TIMEOUT,
+    REDIS_POOL_HEALTH_CHECK_INTERVAL,
+    REDIS_POOL_RETRY_ON_TIMEOUT,
 )
 from app.utils.logging_config import setup_logging
 from app.db.database import init_db
@@ -80,9 +85,22 @@ async def lifespan(app: FastAPI):
     }
     if REDIS_URL:
         try:
-            sio_kwargs["client_manager"] = socketio.AsyncRedisManager(REDIS_URL)
+            redis_options: dict[str, object] = {}
+            if REDIS_POOL_MAX_CONNECTIONS is not None:
+                redis_options["max_connections"] = REDIS_POOL_MAX_CONNECTIONS
+            if REDIS_POOL_SOCKET_TIMEOUT is not None:
+                redis_options["socket_timeout"] = REDIS_POOL_SOCKET_TIMEOUT
+            if REDIS_POOL_SOCKET_CONNECT_TIMEOUT is not None:
+                redis_options["socket_connect_timeout"] = REDIS_POOL_SOCKET_CONNECT_TIMEOUT
+            if REDIS_POOL_HEALTH_CHECK_INTERVAL is not None:
+                redis_options["health_check_interval"] = REDIS_POOL_HEALTH_CHECK_INTERVAL
+            redis_options["retry_on_timeout"] = REDIS_POOL_RETRY_ON_TIMEOUT
+            sio_kwargs["client_manager"] = socketio.AsyncRedisManager(
+                REDIS_URL,
+                redis_options=redis_options,
+            )
             logging.getLogger("socketio").info(
-                "Socket.IO Redis client manager enabled",  # noqa: DY001
+                "Socket.IO Redis client manager enabled with pooled connections",  # noqa: DY001
             )
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("socketio").error(
@@ -116,7 +134,17 @@ async def lifespan(app: FastAPI):
         # Si hay Redis configurado, intentamos tomar un lock para que SOLO un worker cree la conexión
         if redis_url:
             try:
-                redis_client = Redis.from_url(redis_url)
+                redis_kwargs: dict[str, object] = {}
+                if REDIS_POOL_MAX_CONNECTIONS is not None:
+                    redis_kwargs["max_connections"] = REDIS_POOL_MAX_CONNECTIONS
+                if REDIS_POOL_SOCKET_TIMEOUT is not None:
+                    redis_kwargs["socket_timeout"] = REDIS_POOL_SOCKET_TIMEOUT
+                if REDIS_POOL_SOCKET_CONNECT_TIMEOUT is not None:
+                    redis_kwargs["socket_connect_timeout"] = REDIS_POOL_SOCKET_CONNECT_TIMEOUT
+                if REDIS_POOL_HEALTH_CHECK_INTERVAL is not None:
+                    redis_kwargs["health_check_interval"] = REDIS_POOL_HEALTH_CHECK_INTERVAL
+                redis_kwargs["retry_on_timeout"] = REDIS_POOL_RETRY_ON_TIMEOUT
+                redis_client = Redis.from_url(redis_url, **redis_kwargs)
                 # SETNX con expiración
                 lock_key = AISSTREAM_SINGLETON_LOCK_KEY
                 now = int(time.time())
