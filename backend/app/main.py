@@ -103,8 +103,7 @@ async def lifespan(app: FastAPI):
     try:
         init_db()
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"DB init failed: {e}")
+        logging.getLogger(__name__).error("DB init failed: %s", e)
     # Si AISStream está habilitado y tiene API key, usamos AISStream en lugar del simulador local
     bridge: AISBridgeService | None = None
     lock_owner = False
