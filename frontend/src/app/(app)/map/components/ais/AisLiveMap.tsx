@@ -265,7 +265,7 @@ export default function AisLiveMap({
         });
         socket.on("connect", () => {
           setWsState(1);
-          console.debug("[AIS] Conectado a Socket.IO backend", socket?.id);
+          console.info("[AIS] Conectado a Socket.IO backend", socket?.id);
         });
         socket.on("ais_raw", (data: unknown) => {
           try {
@@ -286,6 +286,9 @@ export default function AisLiveMap({
             sog?: number;
             name?: string;
           }) => {
+            try {
+              setLastMsg(JSON.stringify(pos).slice(0, 800));
+            } catch {}
             upsertFeature({
               mmsi: String(pos.id),
               lon: pos.lon,
@@ -311,6 +314,9 @@ export default function AisLiveMap({
             // Solo agregar/actualizar barcos, nunca borrar
             const list = payload?.positions ?? [];
             for (const p of list) {
+              try {
+                setLastMsg(JSON.stringify(p).slice(0, 800));
+              } catch {}
               upsertFeature({
                 mmsi: String(p.id),
                 lon: p.lon,
@@ -324,13 +330,18 @@ export default function AisLiveMap({
             flushNeededRef.current = true;
           }
         );
-        socket.on("connect_error", (err: unknown) => {
+          socket.on("connect_error", (err: unknown) => {
           setWsState(0);
-          console.debug("[AIS] Socket.IO connect_error", err);
+            console.info("[AIS] Socket.IO connect_error", err);
         });
+          socket.onAny((event, ...args) => {
+            try {
+              console.info("[AIS] Evento", event, args?.[0]);
+            } catch {}
+          });
       } catch {
         setWsState(0);
-        console.debug("[AIS] socket.io-client not available");
+          console.info("[AIS] socket.io-client not available");
       }
 
       function upsertFeature(v: Vessel) {
