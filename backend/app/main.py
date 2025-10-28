@@ -10,6 +10,7 @@ from app.config.settings import (
     REDOC_URL,
     OPENAPI_URL,
     ROOT_PATH,
+    REDIS_URL,
 )
 from app.utils.logging_config import setup_logging
 from app.db.database import init_db
@@ -73,7 +74,21 @@ def add_dispatcher(app):
 async def lifespan(app: FastAPI):
     setup_logging(LOG_LEVEL)
     # Crear Socket.IO server ASGI y adjuntar a app.state
-    sio_server = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+    sio_kwargs = {
+        "async_mode": "asgi",
+        "cors_allowed_origins": CORS_ORIGINS if CORS_ORIGINS else "*",
+    }
+    if REDIS_URL:
+        try:
+            sio_kwargs["client_manager"] = socketio.AsyncRedisManager(REDIS_URL)
+            logging.getLogger("socketio").info(
+                "Socket.IO Redis client manager enabled",  # noqa: DY001
+            )
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger("socketio").error(
+                "Failed to init Redis client manager: %s", exc,
+            )
+    sio_server = socketio.AsyncServer(**sio_kwargs)
     sio_asgi = socketio.ASGIApp(sio_server, socketio_path="/socket.io")
     app.state.sio_server = sio_server
     app.state.sio_asgi = sio_asgi

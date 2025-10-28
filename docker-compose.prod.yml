@@ -21,6 +21,15 @@ services:
     networks:
       - app
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - app
+
   backend:
     build:
       context: ./backend
@@ -45,6 +54,7 @@ services:
       DEBUG: ${DEBUG}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
 
       # Odoo
       ODOO_URL: ${ODOO_URL}
@@ -91,6 +101,7 @@ services:
 
     depends_on:
       - db
+      - redis
     networks:
       app:
         aliases:
@@ -131,3 +142,4 @@ networks:
 
 volumes:
   pg_data: {}
+  redis_data: {}
