@@ -26,6 +26,28 @@ type Props = {
   zoom?: number;
 };
 
+function resolveSocketPath(): string {
+  const explicit = process.env.NEXT_PUBLIC_SOCKET_PATH;
+  if (explicit && explicit.trim()) {
+    return explicit.startsWith("/") ? explicit : `/${explicit}`;
+  }
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "/api";
+  const normalize = (value: string) => {
+    const trimmed = value.endsWith("/") ? value.slice(0, -1) : value;
+    return trimmed || "/";
+  };
+  try {
+    if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
+      const url = new URL(apiBase);
+      const path = normalize(url.pathname || "/");
+      return path === "/" ? "/socket.io" : `${path}/socket.io`;
+    }
+  } catch {}
+  const relative = apiBase.startsWith("/") ? apiBase : `/${apiBase}`;
+  const path = normalize(relative);
+  return path === "/" ? "/socket.io" : `${path}/socket.io`;
+}
+
 export default function AisLiveMap({
   center = [-3.7038, 40.4168],
   zoom = 3,
@@ -285,9 +307,10 @@ export default function AisLiveMap({
       try {
         const { io } = await import("socket.io-client");
         const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? window.location.origin;
+        const socketPath = resolveSocketPath();
         const forcePolling = process.env.NEXT_PUBLIC_FORCE_POLLING === "true";
         socket = io(baseUrl, {
-          path: "/socket.io",
+          path: socketPath,
           transports: forcePolling ? ["polling"] : ["polling", "websocket"],
           upgrade: !forcePolling,
         });
