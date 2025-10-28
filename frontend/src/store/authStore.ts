@@ -1,5 +1,7 @@
+
 "use client";
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export type AuthUser = {
   id: number;
@@ -22,16 +24,30 @@ type AuthState = {
   resetAuth: () => void;
 };
 
-export const useAuthStore = create<AuthState>()((set) => ({
-  status: "idle",
-  user: null,
-  accessToken: null,
-  refreshToken: null,
-  loginAt: null,
-  setStatus: (s) => set({ status: s }),
-  setUser: (u) => set({ user: u }),
-  setAccessToken: (t) => set({ accessToken: t }),
-  setRefreshToken: (t) => set({ refreshToken: t }),
-  setLoginAt: (ts) => set({ loginAt: ts }),
-  resetAuth: () => set({ status: "unauthenticated", user: null, accessToken: null, refreshToken: null, loginAt: null }),
-}));
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      status: "idle",
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      loginAt: null,
+      setStatus: (s) => set({ status: s }),
+      setUser: (u) => set({ user: u }),
+      setAccessToken: (t) => set({ accessToken: t }),
+      setRefreshToken: (t) => set({ refreshToken: t }),
+      setLoginAt: (ts) => set({ loginAt: ts }),
+      resetAuth: () => set({ status: "unauthenticated", user: null, accessToken: null, refreshToken: null, loginAt: null }),
+    }),
+    {
+      name: "auth-storage",
+      partialize: (state) => ({
+        status: state.status,
+        user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        loginAt: state.loginAt,
+      }),
+    }
+  )
+);
