@@ -107,20 +107,9 @@ async def lifespan(app: FastAPI):
                 "Failed to init Redis client manager: %s", exc,
             )
     sio_server = socketio.AsyncServer(**sio_kwargs)
-    socketio_path = "/socket.io"
-    if ROOT_PATH:
-        prefix = ROOT_PATH.rstrip("/")
-        if prefix:
-            socketio_path = f"{prefix}/socket.io"
-    if not socketio_path.startswith("/"):
-        socketio_path = "/" + socketio_path.lstrip("/")
-    sio_asgi = socketio.ASGIApp(sio_server, socketio_path=socketio_path)
+    sio_asgi = socketio.ASGIApp(sio_server, socketio_path="/socket.io")
     app.state.sio_server = sio_server
     app.state.sio_asgi = sio_asgi
-    paths = {socketio_path}
-    if socketio_path != "/socket.io":
-        paths.add("/socket.io")
-    app.state.socketio_paths = tuple(paths)
     # Basic Socket.IO connect/disconnect logs to debug connection churn
     @sio_server.event
     async def connect(sid, environ, auth=None):  # noqa: ANN001
@@ -202,17 +191,12 @@ try:
             self.fastapi_app = fastapi_app
 
         async def __call__(self, scope, receive, send):  # noqa: ANN001
-            if scope["type"] in ("http", "websocket"):
-                scope_path = scope.get("path", "")
-                socket_paths = getattr(self.fastapi_app.state, "socketio_paths", ("/socket.io",))
-                for target in socket_paths:
-                    base = target.rstrip("/") or "/"
-                    if scope_path == base or scope_path.startswith(f"{base}/"):
-                        sio_asgi = getattr(self.fastapi_app.state, "sio_asgi", None)
-                        if sio_asgi is not None:
-                            await sio_asgi(scope, receive, send)
-                            return
-                        break
+            if scope["type"] in ("http", "websocket") and scope.get("path", "").startswith("/socket.io"):
+                # Despachar a Socket.IO
+                sio_asgi = getattr(self.fastapi_app.state, "sio_asgi", None)
+                if sio_asgi is not None:
+                    await sio_asgi(scope, receive, send)
+                    return
             # Fallback a FastAPI
             await self.fastapi_app(scope, receive, send)
 
