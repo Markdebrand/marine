@@ -38,7 +38,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
       # Gunicorn workers (set 1 to avoid Socket.IO polling issues without Redis manager)
-      # WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
 
       # Security / JWT
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
