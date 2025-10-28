@@ -78,15 +78,13 @@ async def lifespan(app: FastAPI):
     app.state.sio_server = sio_server
     app.state.sio_asgi = sio_asgi
     # Basic Socket.IO connect/disconnect logs to debug connection churn
-
     @sio_server.event
     async def connect(sid, environ, auth=None):  # noqa: ANN001
-        logging.getLogger("socketio").info(f"[SOCKET.IO] client connected sid={sid} from {environ.get('REMOTE_ADDR')}")
-
+        logging.getLogger("socketio").info("client connected sid=%s", sid)
 
     @sio_server.event
     async def disconnect(sid):  # noqa: ANN001
-        logging.getLogger("socketio").info(f"[SOCKET.IO] client disconnected sid={sid}")
+        logging.getLogger("socketio").info("client disconnected sid=%s", sid)
     try:
         init_db()
     except Exception as e:
