@@ -368,20 +368,21 @@ export default function AisLiveMap({
       function upsertFeature(v: Vessel) {
         if (!Number.isFinite(v.lon) || !Number.isFinite(v.lat)) return;
         const id = v.mmsi;
+        const nextProps: AISProps = {
+          name: v.name,
+          sog: Number.isFinite(v.sog ?? NaN) ? v.sog : undefined,
+          // MapLibre espera un número en icon-rotate; si falta, usa 0 para evitar errores.
+          cog: Number.isFinite(v.cog ?? NaN) ? (v.cog as number) : 0,
+        };
         const existing = featuresRef.current.get(id);
         if (existing) {
           existing.geometry.coordinates = [v.lon, v.lat];
-          existing.properties = {
-            ...(existing.properties || {}),
-            name: v.name,
-            sog: v.sog,
-            cog: v.cog,
-          } as AISProps;
+          existing.properties = nextProps;
         } else {
           const feat: AISFeature = {
             type: "Feature",
             id,
-            properties: { name: v.name, sog: v.sog, cog: v.cog },
+            properties: nextProps,
             geometry: { type: "Point", coordinates: [v.lon, v.lat] },
           };
           featuresRef.current.set(id, feat);
