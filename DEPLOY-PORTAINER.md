@@ -15,6 +15,50 @@ Este repo ya está adaptado a HSOMarine y a Postgres. Contiene `docker-compose.t
 - `db`: Postgres 16 con volumen persistente por entorno.
 - Nginx del frontend hace proxy a `backend` en `/api/` (ver `frontend/nginx.conf.frontend`).
 
+## Proxy TLS (Caddy) con WebSockets
+
+Si publicas el stack detrás de un proxy global (recomendado para TLS), usa Caddy 2 y asegúrate de enrutar correctamente `/api` y `/socket.io` al backend.
+
+Ejemplo de `Caddyfile` para producción (contenedor `caddy` en la red `proxy-global` con alias hacia los servicios):
+
+```
+marine.hsotrade.com {
+  encode zstd gzip
+
+  @api path /api/*
+  reverse_proxy @api hsomarine-prod-backend:8000
+
+  # Socket.IO (Engine.IO) necesita pasar WebSockets y long-polling
+  @socket path /socket.io* /socket.io/*
+  reverse_proxy @socket hsomarine-prod-backend:8000
+
+  # Resto al frontend (Next.js standalone en :80)
+  reverse_proxy hsomarine-prod-frontend:80
+}
+```
+
+Notas importantes:
+
+- Caddy 2 maneja WebSockets de forma automática en `reverse_proxy`, no hace falta headers manuales.
+- Los contenedores `frontend` y `backend` ya exponen aliases en la red `proxy-global`:
+  - Backend: `hsomarine-prod-backend:8000`
+  - Frontend: `hsomarine-prod-frontend:80`
+- En este proyecto, el cliente Socket.IO del frontend se conecta a la misma raíz (`window.location.origin`) con `path: "/socket.io"`. Por eso el proxy debe enviar ese path al backend.
+- Para comprobar que el proxy está ruteando bien, abre en el navegador:
+  - `https://marine.hsotrade.com/api/healthz` → debe responder `{ "status": "ok" }`.
+  - `https://marine.hsotrade.com/socket.io/?EIO=4&transport=polling` → debe devolver un paquete de handshake (status 200) con un JSON tipo `{"sid":...,"upgrades":["websocket"],...}`. Si ves 400/403, el path no está yendo al backend.
+
+Recarga de Caddy (en Portainer o Docker):
+
+- Monta el `Caddyfile` en `/etc/caddy/Caddyfile` dentro del contenedor `caddy`.
+- Tras editarlo, recarga:
+
+  ```bash
+  docker exec -it hsomarine-proxy caddy reload --config /etc/caddy/Caddyfile
+  ```
+
+Si usas Traefik o Nginx, aplica el mismo principio: enruta `/api/*` y `/socket.io/*` al backend, el resto al frontend, y habilita WebSockets.
+
 ## Pasos en Portainer
 
 1) Crear Stack de PRUEBAS
