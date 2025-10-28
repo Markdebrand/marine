@@ -280,12 +280,14 @@ export default function AisLiveMap({
           "ais_position",
           (pos: {
             id: string | number;
-            lon: number;
-            lat: number;
+            lon: number | null | undefined;
+            lat: number | null | undefined;
             cog?: number;
             sog?: number;
             name?: string;
           }) => {
+            if (typeof pos.lon !== "number" || !Number.isFinite(pos.lon)) return;
+            if (typeof pos.lat !== "number" || !Number.isFinite(pos.lat)) return;
             upsertFeature({
               mmsi: String(pos.id),
               lon: pos.lon,
@@ -301,8 +303,8 @@ export default function AisLiveMap({
           (payload: {
             positions?: Array<{
               id: string | number;
-              lon: number;
-              lat: number;
+              lon: number | null | undefined;
+              lat: number | null | undefined;
               cog?: number;
               sog?: number;
               name?: string;
@@ -311,6 +313,8 @@ export default function AisLiveMap({
             // Solo agregar/actualizar barcos, nunca borrar
             const list = payload?.positions ?? [];
             for (const p of list) {
+              if (typeof p.lon !== "number" || !Number.isFinite(p.lon)) continue;
+              if (typeof p.lat !== "number" || !Number.isFinite(p.lat)) continue;
               upsertFeature({
                 mmsi: String(p.id),
                 lon: p.lon,
