@@ -37,6 +37,34 @@ export default function AisLiveMap({
   type AISProps = { name?: string; sog?: number; cog?: number };
   type AISFeature = Feature<Point, AISProps> & { id: string };
   const featuresRef = useRef<Map<string, AISFeature>>(new Map());
+
+  // --- Persistencia en localStorage ---
+  // Cargar barcos guardados al montar
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("ais_vessels");
+      if (raw) {
+        const arr: AISFeature[] = JSON.parse(raw);
+        for (const feat of arr) {
+          if (feat && feat.id) {
+            featuresRef.current.set(feat.id as string, feat);
+          }
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Guardar barcos en localStorage cada vez que cambian
+  useEffect(() => {
+    const save = () => {
+      try {
+        const arr = Array.from(featuresRef.current.values());
+        localStorage.setItem("ais_vessels", JSON.stringify(arr));
+      } catch {}
+    };
+    const interval = setInterval(save, 2000);
+    return () => clearInterval(interval);
+  }, []);
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
   const flushTimerRef = useRef<number | null>(null);
