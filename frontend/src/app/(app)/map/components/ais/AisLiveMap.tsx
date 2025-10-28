@@ -79,6 +79,8 @@ export default function AisLiveMap({
   // const [connected, setConnected] = useState(false);
   // const [vesselCount, setVesselCount] = useState(0);
   const [wsState, setWsState] = useState<number | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   // const [lastClose, setLastClose] = useState<{
   //   code?: number;
   //   reason?: string;
@@ -281,89 +283,131 @@ export default function AisLiveMap({
 
 
       // Solo conectar a backend vía Socket.IO
+      // --- Reconexión con backoff exponencial ---
       let socket: Socket | null = null;
-      try {
-        const { io } = await import("socket.io-client");
-        const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? window.location.origin;
-        const forcePolling = process.env.NEXT_PUBLIC_FORCE_POLLING === "true";
-        socket = io(baseUrl, {
-          path: "/socket.io",
-          transports: forcePolling ? ["polling"] : ["polling", "websocket"],
-          upgrade: !forcePolling,
-        });
-        socket.on("connect", () => {
-          setWsState(1);
-          console.debug("[AIS] Conectado a Socket.IO backend", socket?.id);
-        });
-        socket.on("ais_raw", (data: unknown) => {
-          try {
-            const now = Date.now();
-            if (now - lastMsgTsRef.current > 1000) {
-              setLastMsg(JSON.stringify(data).slice(0, 800));
-              lastMsgTsRef.current = now;
-            }
-          } catch {}
-        });
-        socket.on(
-          "ais_position",
-          (pos: {
-            id: string | number;
-            lon: number | null | undefined;
-            lat: number | null | undefined;
-            cog?: number;
-            sog?: number;
-            name?: string;
-          }) => {
-            if (typeof pos.lon !== "number" || !Number.isFinite(pos.lon)) return;
-            if (typeof pos.lat !== "number" || !Number.isFinite(pos.lat)) return;
-            upsertFeature({
-              mmsi: String(pos.id),
-              lon: pos.lon,
-              lat: pos.lat,
-              cog: pos.cog,
-              sog: pos.sog,
-              name: pos.name,
-            });
-          }
-        );
-        socket.on(
-          "ais_position_batch",
-          (payload: {
-            positions?: Array<{
+      let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+      let attempts = 0;
+      const maxDelay = 20000; // 20s máximo
+
+      const connectSocket = async () => {
+        setReconnecting(attempts > 0);
+        setReconnectAttempts(attempts);
+        try {
+          const { io } = await import("socket.io-client");
+          const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? window.location.origin;
+          const forcePolling = process.env.NEXT_PUBLIC_FORCE_POLLING === "true";
+          socket = io(baseUrl, {
+            path: "/socket.io",
+            transports: forcePolling ? ["polling"] : ["polling", "websocket"],
+            upgrade: !forcePolling,
+            reconnection: false, // Desactivamos la reconexión automática de socket.io
+          });
+          socket.on("connect", () => {
+            setWsState(1);
+            setReconnecting(false);
+            setReconnectAttempts(0);
+            attempts = 0;
+            console.debug("[AIS] Conectado a Socket.IO backend", socket?.id);
+          });
+          socket.on("ais_raw", (data: unknown) => {
+            try {
+              const now = Date.now();
+              if (now - lastMsgTsRef.current > 1000) {
+                setLastMsg(JSON.stringify(data).slice(0, 800));
+                lastMsgTsRef.current = now;
+              }
+            } catch {}
+          });
+          socket.on(
+            "ais_position",
+            (pos: {
               id: string | number;
               lon: number | null | undefined;
               lat: number | null | undefined;
               cog?: number;
               sog?: number;
               name?: string;
-            }>;
-          }) => {
-            // Solo agregar/actualizar barcos, nunca borrar
-            const list = payload?.positions ?? [];
-            for (const p of list) {
-              if (typeof p.lon !== "number" || !Number.isFinite(p.lon)) continue;
-              if (typeof p.lat !== "number" || !Number.isFinite(p.lat)) continue;
+            }) => {
+              if (typeof pos.lon !== "number" || !Number.isFinite(pos.lon)) return;
+              if (typeof pos.lat !== "number" || !Number.isFinite(pos.lat)) return;
               upsertFeature({
-                mmsi: String(p.id),
-                lon: p.lon,
-                lat: p.lat,
-                cog: p.cog,
-                sog: p.sog,
-                name: p.name,
+                mmsi: String(pos.id),
+                lon: pos.lon,
+                lat: pos.lat,
+                cog: pos.cog,
+                sog: pos.sog,
+                name: pos.name,
               });
             }
-            // Forzar flush para que el GeoJSON siempre incluya TODOS los barcos vistos
-            flushNeededRef.current = true;
-          }
-        );
-        socket.on("connect_error", (err: unknown) => {
+          );
+          socket.on(
+            "ais_position_batch",
+            (payload: {
+              positions?: Array<{
+                id: string | number;
+                lon: number | null | undefined;
+                lat: number | null | undefined;
+                cog?: number;
+                sog?: number;
+                name?: string;
+              }>;
+            }) => {
+              // Solo agregar/actualizar barcos, nunca borrar
+              const list = payload?.positions ?? [];
+              for (const p of list) {
+                if (typeof p.lon !== "number" || !Number.isFinite(p.lon)) continue;
+                if (typeof p.lat !== "number" || !Number.isFinite(p.lat)) continue;
+                upsertFeature({
+                  mmsi: String(p.id),
+                  lon: p.lon,
+                  lat: p.lat,
+                  cog: p.cog,
+                  sog: p.sog,
+                  name: p.name,
+                });
+              }
+              // Forzar flush para que el GeoJSON siempre incluya TODOS los barcos vistos
+              flushNeededRef.current = true;
+            }
+          );
+          socket.on("connect_error", (err: unknown) => {
+            setWsState(0);
+            setReconnecting(true);
+            setReconnectAttempts(attempts + 1);
+            console.debug("[AIS] Socket.IO connect_error", err);
+            // Backoff exponencial
+            attempts++;
+            const delay = Math.min(1000 * 2 ** attempts, maxDelay);
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            reconnectTimeout = setTimeout(() => {
+              connectSocket();
+            }, delay);
+          });
+          socket.on("disconnect", () => {
+            setWsState(0);
+            setReconnecting(true);
+            setReconnectAttempts(attempts + 1);
+            // Backoff exponencial
+            attempts++;
+            const delay = Math.min(1000 * 2 ** attempts, maxDelay);
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            reconnectTimeout = setTimeout(() => {
+              connectSocket();
+            }, delay);
+          });
+        } catch {
           setWsState(0);
-          console.debug("[AIS] Socket.IO connect_error", err);
-        });
-      } catch {
-        setWsState(0);
-        console.debug("[AIS] socket.io-client not available");
-      }
+          setReconnecting(true);
+          setReconnectAttempts(attempts + 1);
+          attempts++;
+          const delay = Math.min(1000 * 2 ** attempts, maxDelay);
+          if (reconnectTimeout) clearTimeout(reconnectTimeout);
+          reconnectTimeout = setTimeout(() => {
+            connectSocket();
+          }, delay);
+        }
+      };
+      connectSocket();
 
       function upsertFeature(v: Vessel) {
         if (!Number.isFinite(v.lon) || !Number.isFinite(v.lat)) return;
@@ -434,6 +478,13 @@ export default function AisLiveMap({
   return (
     <div className="fixed inset-0 z-0">
       <div ref={mapEl} className="w-full h-full">
+
+        {/* Estado de reconexión */}
+        {reconnecting && (
+          <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded shadow">
+            <span>Reconectando con el servidor... (intento {reconnectAttempts})</span>
+          </div>
+        )}
 
         {/* Diagnostics panel */}
         <div className="absolute top-24 right-4 z-50 w-80 text-xs">
