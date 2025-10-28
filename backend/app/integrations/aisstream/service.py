@@ -53,6 +53,8 @@ class AISBridgeService:
 
         while self._running:
             try:
+                # Limpiar barcos al reconectar para evitar duplicados
+                self._ships.clear()
                 async with websockets.connect(url) as websocket:
                     subscribe_message = {"APIKey": self.api_key, "BoundingBoxes": self.bounding_boxes}
                     await websocket.send(json.dumps(subscribe_message))
@@ -78,10 +80,12 @@ class AISBridgeService:
                                     if len(self._ships[ship_id]) > 100:
                                         self._ships[ship_id] = self._ships[ship_id][-100:]
                                     # Emitir evento a todos los clientes conectados
+                                    # Emitir con la misma forma que consume el frontend (id, lat, lon)
                                     await self.sio_server.emit("ais_position", {
-                                        "ship_id": ship_id,
+                                        "id": ship_id,
                                         "lat": lat,
                                         "lon": lon,
+                                        # histórico opcional (no usado por el cliente pero útil para debug)
                                         "positions": self._ships[ship_id],
                                     })
                             except Exception as e:
