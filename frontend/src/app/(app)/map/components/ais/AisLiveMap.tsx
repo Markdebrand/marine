@@ -11,6 +11,7 @@ import type {
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Feature, FeatureCollection, Point } from "geojson";
 import type { Socket } from "socket.io-client";
+import { apiFetch } from "@/lib/api";
 
 type Vessel = {
   mmsi: string;
@@ -146,9 +147,10 @@ export default function AisLiveMap({
               features: [],
             } as FeatureCollection<Point, AISProps>,
             promoteId: "id",
-            cluster: false, // Desactivado para que los iconos no desaparezcan
-            // clusterRadius: 50,
-            // clusterMaxZoom: 12,
+            // Activamos clustering para escalar cuando hay miles de puntos.
+            cluster: true,
+            clusterRadius: 60,
+            clusterMaxZoom: 12,
           } as unknown as GeoJSONSourceSpecification;
           mapRef.current!.addSource(SOURCE_ID, sourceSpec);
         }
@@ -156,11 +158,94 @@ export default function AisLiveMap({
         // Add ship icon image to map
         if (mapRef.current) {
           if (!mapRef.current.hasImage(SHIP_IMAGE_ID)) {
-            const img = new window.Image(32, 32);
+            const img = new window.Image(24, 24);
             img.onload = () => {
               try {
                 if (!mapRef.current) return;
                 mapRef.current.addImage(SHIP_IMAGE_ID, img, { pixelRatio: 2 });
+                // Cluster layer usando icono de barco + contador
+                if (!mapRef.current.getLayer(LAYER_CLUSTERS_ID)) {
+                  mapRef.current.addLayer({
+                    id: LAYER_CLUSTERS_ID,
+                    type: "symbol",
+                    source: SOURCE_ID,
+                    filter: ["has", "point_count"],
+                    layout: {
+                      "icon-image": SHIP_IMAGE_ID,
+                      // Escala combinada por tamaño de cluster y nivel de zoom
+                      // Top-level zoom interpolate; outputs incorporate cluster size factor
+                      "icon-size": [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        0,
+                        [
+                          "interpolate",
+                          ["linear"],
+                          ["get", "point_count"],
+                          1, 0.9,
+                          100, 1.2,
+                          500, 1.5
+                        ],
+                        6,
+                        [
+                          "interpolate",
+                          ["linear"],
+                          ["get", "point_count"],
+                          1, 1.1,
+                          100, 1.4,
+                          500, 1.8
+                        ],
+                        10,
+                        [
+                          "interpolate",
+                          ["linear"],
+                          ["get", "point_count"],
+                          1, 1.5,
+                          100, 1.9,
+                          500, 2.4
+                        ],
+                        14,
+                        [
+                          "interpolate",
+                          ["linear"],
+                          ["get", "point_count"],
+                          1, 2.0,
+                          100, 2.6,
+                          500, 3.2
+                        ],
+                        18,
+                        [
+                          "interpolate",
+                          ["linear"],
+                          ["get", "point_count"],
+                          1, 2.6,
+                          100, 3.4,
+                          500, 4.2
+                        ]
+                      ],
+                      "icon-allow-overlap": true,
+                      "text-field": ["get", "point_count_abbreviated"],
+                      "text-size": [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        0, 12,
+                        10, 14,
+                        14, 18,
+                        18, 22
+                      ],
+                      "text-offset": [0, 0.9],
+                      "text-anchor": "top",
+                      "text-allow-overlap": true,
+                    },
+                    paint: {
+                      "text-color": "#0f172a",
+                      "text-halo-color": "#ffffff",
+                      "text-halo-width": 1.2,
+                    },
+                  });
+                }
                 // Add SymbolLayer after image is loaded
                 if (!mapRef.current.getLayer(LAYER_SHIP_SYMBOL_ID)) {
                   const symbolLayer: SymbolLayerSpecification = {
@@ -170,7 +255,17 @@ export default function AisLiveMap({
                     filter: ["!", ["has", "point_count"]],
                     layout: {
                       "icon-image": SHIP_IMAGE_ID,
-                      "icon-size": 1,
+                      // Hacer el barco más grande al acercar (zoom)
+                      "icon-size": [
+                        "interpolate",
+                        ["linear"],
+                        ["zoom"],
+                        0, 1.0,
+                        6, 1.3,
+                        10, 1.8,
+                        14, 2.4,
+                        18, 3.2
+                      ],
                       "icon-allow-overlap": true,
                       "icon-rotate": ["get", "cog"],
                     },
@@ -183,6 +278,88 @@ export default function AisLiveMap({
             img.src = "/images/ship.svg";
           } else {
             // Add SymbolLayer if image already loaded
+            // Cluster layer usando icono de barco + contador
+            if (!mapRef.current.getLayer(LAYER_CLUSTERS_ID)) {
+              mapRef.current.addLayer({
+                id: LAYER_CLUSTERS_ID,
+                type: "symbol",
+                source: SOURCE_ID,
+                filter: ["has", "point_count"],
+                layout: {
+                  "icon-image": SHIP_IMAGE_ID,
+                  // Top-level zoom interpolate; outputs incorporate cluster size factor
+                  "icon-size": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    0,
+                    [
+                      "interpolate",
+                      ["linear"],
+                      ["get", "point_count"],
+                      1, 0.9,
+                      100, 1.2,
+                      500, 1.5
+                    ],
+                    6,
+                    [
+                      "interpolate",
+                      ["linear"],
+                      ["get", "point_count"],
+                      1, 1.1,
+                      100, 1.4,
+                      500, 1.8
+                    ],
+                    10,
+                    [
+                      "interpolate",
+                      ["linear"],
+                      ["get", "point_count"],
+                      1, 1.5,
+                      100, 1.9,
+                      500, 2.4
+                    ],
+                    14,
+                    [
+                      "interpolate",
+                      ["linear"],
+                      ["get", "point_count"],
+                      1, 2.0,
+                      100, 2.6,
+                      500, 3.2
+                    ],
+                    18,
+                    [
+                      "interpolate",
+                      ["linear"],
+                      ["get", "point_count"],
+                      1, 2.6,
+                      100, 3.4,
+                      500, 4.2
+                    ]
+                  ],
+                  "icon-allow-overlap": true,
+                  "text-field": ["get", "point_count_abbreviated"],
+                  "text-size": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    0, 10,
+                    10, 12,
+                    14, 14,
+                    18, 18
+                  ],
+                  "text-offset": [0, 0.9],
+                  "text-anchor": "top",
+                  "text-allow-overlap": true,
+                },
+                paint: {
+                  "text-color": "#0f172a",
+                  "text-halo-color": "#ffffff",
+                  "text-halo-width": 1.2,
+                },
+              });
+            }
             if (!mapRef.current.getLayer(LAYER_SHIP_SYMBOL_ID)) {
               const symbolLayer: SymbolLayerSpecification = {
                 id: LAYER_SHIP_SYMBOL_ID,
@@ -191,7 +368,16 @@ export default function AisLiveMap({
                 filter: ["!", ["has", "point_count"]],
                 layout: {
                   "icon-image": SHIP_IMAGE_ID,
-                  "icon-size": 1,
+                  "icon-size": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    0, 1.0,
+                    6, 1.3,
+                    10, 1.8,
+                    14, 2.4,
+                    18, 3.2
+                  ],
                   "icon-allow-overlap": true,
                   "icon-rotate": ["get", "cog"],
                 },
@@ -202,6 +388,70 @@ export default function AisLiveMap({
           }
         }
         sourceReadyRef.current = true;
+
+        // Carga inicial paginada por REST en el área visible
+        void (async () => {
+          try {
+            const m = mapRef.current;
+            if (!m) return;
+            const b = m.getBounds();
+            const west = b.getWest();
+            const south = b.getSouth();
+            const east = b.getEast();
+            const north = b.getNorth();
+
+            // Limitar la cantidad inicial para no bloquear el main thread
+            const PAGE_SIZE = 1000;
+            const MAX_ITEMS = 5000; // tope inicial
+            let page = 1;
+            let received = 0;
+            // Bucle de páginas hasta llenar tope o quedarnos sin datos
+            while (received < MAX_ITEMS) {
+              const res = await apiFetch<{
+                total: number;
+                page: number;
+                page_size: number;
+                items: Array<{ id: string | number; lat: number; lon: number }>;
+              }>(
+                `/aisstream/positions?page=${page}&page_size=${PAGE_SIZE}` +
+                  `&west=${west}&south=${south}&east=${east}&north=${north}`
+              );
+              const list = res?.items ?? [];
+              if (!Array.isArray(list) || list.length === 0) break;
+              for (const it of list) {
+                if (
+                  typeof it?.lon !== "number" ||
+                  !Number.isFinite(it.lon) ||
+                  typeof it?.lat !== "number" ||
+                  !Number.isFinite(it.lat)
+                )
+                  continue;
+                upsertFeature({
+                  mmsi: String(it.id),
+                  lon: it.lon,
+                  lat: it.lat,
+                });
+              }
+              received += list.length;
+              page += 1;
+              // Ceder al event loop para mantener la UI fluida
+              await new Promise((r) => setTimeout(r, 0));
+              // Si el mapa cambió de bounds mientras cargábamos, detenemos la precarga
+              const nb = m.getBounds();
+              if (
+                nb.getWest() !== west ||
+                nb.getSouth() !== south ||
+                nb.getEast() !== east ||
+                nb.getNorth() !== north
+              ) {
+                break;
+              }
+            }
+            flushNeededRef.current = true;
+          } catch (e) {
+            console.debug("[AIS] initial REST load failed", e);
+          }
+        })();
 
         // Zoom into clusters on click
         const m = mapRef.current!;
@@ -250,8 +500,7 @@ export default function AisLiveMap({
       if (mapRef.current?.loaded()) onLoad();
       else mapRef.current?.once("load", onLoad);
 
-      // No auto flush, handled by refresh button
-      // Throttled flush to update source data in batches
+  // Throttled flush to update source data in batches
       const startFlush = () => {
         if (flushTimerRef.current != null) return;
         flushTimerRef.current = window.setInterval(() => {
@@ -261,7 +510,39 @@ export default function AisLiveMap({
             !mapRef.current
           )
             return;
-          const features = Array.from(featuresRef.current.values());
+          // Culling por viewport + muestreo estable para limitar draw calls
+          const m = mapRef.current;
+          const b = m.getBounds();
+          const west = b.getWest();
+          const south = b.getSouth();
+          const east = b.getEast();
+          const north = b.getNorth();
+          const crossesAntimeridian = west > east;
+          const MAX_RENDERED = 8000; // tope para mantener fluidez
+
+          const all = Array.from(featuresRef.current.values());
+          const visible = all.filter((f) => {
+            const [lon, lat] = f.geometry.coordinates as [number, number];
+            const inLat = lat >= south && lat <= north;
+            const inLon = crossesAntimeridian
+              ? lon >= west || lon <= east
+              : lon >= west && lon <= east;
+            return inLat && inLon;
+          });
+          let features: typeof visible = visible;
+          if (features.length > MAX_RENDERED) {
+            const stride = Math.ceil(features.length / MAX_RENDERED);
+            // Muestreo estable por id para evitar parpadeos
+            const stableHash = (s: string) => {
+              let h = 2166136261 >>> 0;
+              for (let i = 0; i < s.length; i++) {
+                h ^= s.charCodeAt(i);
+                h = Math.imul(h, 16777619);
+              }
+              return h >>> 0;
+            };
+            features = features.filter((f) => stableHash(String(f.id)) % stride === 0);
+          }
           const fc: FeatureCollection<Point, AISProps> = {
             type: "FeatureCollection",
             features,
@@ -273,10 +554,48 @@ export default function AisLiveMap({
             src.setData(fc);
             flushNeededRef.current = false;
           }
-        }, 250);
+        }, 400);
       };
       startFlush();
   // Manual refresh handler
+
+      // Debounced refresh on viewport changes: fetch first page for current bounds
+      let refreshTimer: number | null = null;
+      const requestViewportPage = async () => {
+        try {
+          const m = mapRef.current;
+          if (!m) return;
+          const b = m.getBounds();
+          const res = await apiFetch<{
+            items: Array<{ id: string | number; lat: number; lon: number }>;
+          }>(
+            `/aisstream/positions?page=1&page_size=1000` +
+              `&west=${b.getWest()}&south=${b.getSouth()}&east=${b.getEast()}&north=${b.getNorth()}`
+          );
+          const list = res?.items ?? [];
+          for (const it of list) {
+            if (
+              typeof it?.lon !== "number" ||
+              !Number.isFinite(it.lon) ||
+              typeof it?.lat !== "number" ||
+              !Number.isFinite(it.lat)
+            )
+              continue;
+            upsertFeature({ mmsi: String(it.id), lon: it.lon, lat: it.lat });
+          }
+          flushNeededRef.current = true;
+        } catch (e) {
+          console.debug("[AIS] viewport REST load failed", e);
+        }
+      };
+      const scheduleViewportRefresh = () => {
+        if (refreshTimer != null) window.clearTimeout(refreshTimer);
+        refreshTimer = window.setTimeout(() => {
+          refreshTimer = null;
+          void requestViewportPage();
+        }, 800);
+      };
+      mapRef.current?.on("moveend", scheduleViewportRefresh);
 
 
 
@@ -414,6 +733,7 @@ export default function AisLiveMap({
         } catch {}
         mapRef.current?.remove();
         mapRef.current = null;
+    if (refreshTimer != null) window.clearTimeout(refreshTimer);
   // featuresRef.current.clear(); // Nunca limpiar los barcos para que nunca desaparezcan
       };
 

@@ -7,7 +7,7 @@ import websockets
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Dict, List, Tuple, Optional, Iterable
 
 class AISBridgeService:
     def __init__(self, sio_server, api_key, bounding_boxes=None):
@@ -16,7 +16,10 @@ class AISBridgeService:
         self.bounding_boxes = bounding_boxes or [[[-90, -180], [90, 180]]]
         self._task = None
         self._running = False
+        # ship_id -> history of [lat, lon]
         self._ships: Dict[str, List[List[float]]] = {}
+        # ship_id -> (lat, lon) cache for quick reads
+        self._last_pos: Dict[str, Tuple[float, float]] = {}
 
     async def start(self):
         self._running = True
@@ -38,18 +41,18 @@ class AISBridgeService:
                 try:
                     # Enviar batch de todos los barcos cada 2 segundos
                     positions = []
-                    for ship_id, pos_list in self._ships.items():
-                        if pos_list:
-                            lat, lon = pos_list[-1]
-                            positions.append({
-                                "id": ship_id,
-                                "lat": lat,
-                                "lon": lon,
-                            })
-                    logging.info(f"[SOCKET.IO] Emitting ais_position_batch with {len(positions)} ships to all clients")
+                    for ship_id, (lat, lon) in self._last_pos.items():
+                        positions.append({
+                            "id": ship_id,
+                            "lat": lat,
+                            "lon": lon,
+                        })
+                    logging.getLogger("socketio.server").debug(
+                        "Emitting ais_position_batch count=%d", len(positions)
+                    )
                     await self.sio_server.emit("ais_position_batch", {"positions": positions})
                 except Exception as e:
-                    logging.error(f"Error enviando batch AIS: {e}")
+                    logging.getLogger("socketio.server").warning("Error sending AIS batch: %s", e)
                 await asyncio.sleep(2)
 
         while self._running:
@@ -72,8 +75,10 @@ class AISBridgeService:
                                     ship_id = str(ais_message['UserID'])
                                     lat = float(ais_message['Latitude'])
                                     lon = float(ais_message['Longitude'])
-                                    log_line = f"[{datetime.now(timezone.utc)}] ShipId: {ship_id} Latitude: {lat} Longitude: {lon}"
-                                    logging.info(log_line)
+                                    # Log detallado solo en DEBUG para evitar ruido
+                                    logging.getLogger(__name__).debug(
+                                        "Ship %s lat=%s lon=%s", ship_id, lat, lon
+                                    )
                                     # Mantener historial
                                     emitir = False
                                     if ship_id not in self._ships:
@@ -87,9 +92,12 @@ class AISBridgeService:
                                     self._ships[ship_id].append([lat, lon])
                                     if len(self._ships[ship_id]) > 100:
                                         self._ships[ship_id] = self._ships[ship_id][-100:]
+                                    self._last_pos[ship_id] = (lat, lon)
                                     if emitir:
                                         # Emitir evento a todos los clientes conectados
-                                        logging.info(f"[SOCKET.IO] Emitting ais_position for ship {ship_id} at {lat},{lon}")
+                                        logging.getLogger("socketio.server").debug(
+                                            "Emitting ais_position ship=%s", ship_id
+                                        )
                                         await self.sio_server.emit("ais_position", {
                                             "id": ship_id,
                                             "lat": lat,
@@ -106,12 +114,57 @@ class AISBridgeService:
                         except Exception:
                             pass
             except Exception as e:
-                logging.error(f"Error en conexión AISSTREAM: {e}")
+                logging.getLogger(__name__).error("AISSTREAM connection error: %s", e)
                 # Log extra para depuración
-                logging.error(f"AISSTREAM API KEY usada: {self.api_key}")
+                logging.getLogger(__name__).debug("AISSTREAM API KEY used: %s", self.api_key)
                 import traceback
-                logging.error(traceback.format_exc())
+                logging.getLogger(__name__).debug(traceback.format_exc())
                 await asyncio.sleep(5)
 
+    def _iter_last_positions(
+        self, bbox: Optional[Tuple[float, float, float, float]] = None
+    ) -> Iterable[Tuple[str, float, float]]:
+        """Iterate last known positions optionally filtered by bbox (west,south,east,north)."""
+        if bbox is None:
+            for ship_id, (lat, lon) in self._last_pos.items():
+                yield ship_id, lat, lon
+            return
+        west, south, east, north = bbox
+        # Handle antimeridian wrap simply by requiring west<=lon<=east; if west>east skip filter.
+        use_lon_filter = east >= west
+        for ship_id, (lat, lon) in self._last_pos.items():
+            if lat < south or lat > north:
+                continue
+            if use_lon_filter and (lon < west or lon > east):
+                continue
+            yield ship_id, lat, lon
+
     def get_positions(self):
+        """Backwards-compatible: returns full histories."""
         return [[ship_id, positions] for ship_id, positions in self._ships.items()]
+
+    def get_positions_page(
+        self,
+        page: int = 1,
+        page_size: int = 1000,
+        bbox: Optional[Tuple[float, float, float, float]] = None,
+    ) -> dict:
+        """
+        Return a paginated list of last positions per ship.
+        Response shape: { total, page, page_size, items: [{id, lat, lon}] }
+        """
+        # Build filtered list
+        items = [
+            {"id": ship_id, "lat": lat, "lon": lon}
+            for ship_id, lat, lon in self._iter_last_positions(bbox)
+        ]
+        total = len(items)
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_items = items[start:end]
+        return {
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "items": page_items,
+        }
