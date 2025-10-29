@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useMapStore } from "@/app/(app)/map/store/mapStore";
 import type {
   Map as MLMap,
   GeoJSONSource,
@@ -31,6 +32,11 @@ export default function AisLiveMap({
   center = [-3.7038, 40.4168],
   zoom = 3,
 }: Props) {
+  // If a persisted view exists in the store, prefer it as the initial viewport.
+  const persistedCenter = useMapStore((s) => s.center);
+  const persistedZoom = useMapStore((s) => s.zoom);
+  if (persistedCenter) center = persistedCenter;
+  if (persistedZoom != null) zoom = persistedZoom;
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -79,15 +85,19 @@ export default function AisLiveMap({
 
   // const [connected, setConnected] = useState(false);
   // const [vesselCount, setVesselCount] = useState(0);
-  const [wsState, setWsState] = useState<number | null>(null);
+  // Only keep setters because we only update these diagnostics; the values are unused
+  const setWsState = useState<number | null>(null)[1];
   // const [lastClose, setLastClose] = useState<{
   //   code?: number;
   //   reason?: string;
   // } | null>(null);
-  const [lastMsg, setLastMsg] = useState<string | null>(null);
+  const setLastMsg = useState<string | null>(null)[1];
 
   const [hydrated, setHydrated] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // Capturar el centro/zoom iniciales para usarlos solo en la creación del mapa
+  const initialCenterRef = useRef(center);
+  const initialZoomRef = useRef(zoom);
 
 
 
@@ -101,9 +111,11 @@ export default function AisLiveMap({
   }, []);
 
   useEffect(() => {
-    // Don't run map/ws setup until component has hydrated on client
+    // Inicializamos el mapa y los subsistemas SOLO una vez, cuando esté hidratado
     if (!hydrated) return;
     if (!mapEl.current) return;
+    // Evitar re-inicializar si ya existe una instancia
+    if (mapRef.current) return;
     let cancelled = false;
     let teardown: (() => void) | undefined;
 
@@ -131,8 +143,9 @@ export default function AisLiveMap({
       const map = new maplibregl.Map({
         container: mapEl.current!,
         style,
-        center,
-        zoom,
+        // Usar SOLO los valores iniciales para la creación
+        center: initialCenterRef.current,
+        zoom: initialZoomRef.current,
         attributionControl: false,
       });
       mapRef.current = map;
@@ -389,6 +402,39 @@ export default function AisLiveMap({
         }
         sourceReadyRef.current = true;
 
+        // Restore map view if persisted (extra safety after load)
+        try {
+          if (mapRef.current) {
+            const storeCenter = useMapStore.getState().center;
+            const storeZoom = useMapStore.getState().zoom;
+            if (storeCenter) {
+              mapRef.current.setCenter(storeCenter as [number, number]);
+            }
+            if (storeZoom != null) {
+              mapRef.current.setZoom(storeZoom as number);
+            }
+          }
+        } catch {}
+
+        // Keep the stored viewport in sync when the user moves/zooms the map
+        if (mapRef.current) {
+          const onMoveEnd = () => {
+            try {
+              const c = mapRef.current!.getCenter();
+              const z = mapRef.current!.getZoom();
+              useMapStore.getState().setView([c.lng, c.lat], z);
+            } catch {}
+          };
+          mapRef.current.on("moveend", onMoveEnd);
+          // remove listener on source teardown
+          const originalTear = teardown;
+          teardown = () => {
+            try {
+              mapRef.current?.off("moveend", onMoveEnd);
+            } catch {}
+            originalTear?.();
+          };
+        }
         // Carga inicial paginada por REST en el área visible
         void (async () => {
           try {
@@ -497,8 +543,8 @@ export default function AisLiveMap({
           }
         });
       };
-      if (mapRef.current?.loaded()) onLoad();
-      else mapRef.current?.once("load", onLoad);
+  if (mapRef.current?.loaded()) onLoad();
+  else mapRef.current?.once("load", onLoad);
 
   // Throttled flush to update source data in batches
       const startFlush = () => {
@@ -605,6 +651,10 @@ export default function AisLiveMap({
         const { io } = await import("socket.io-client");
         const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? window.location.origin;
         const forcePolling = process.env.NEXT_PUBLIC_FORCE_POLLING === "true";
+        // Debug: log where the client will attempt to connect. Helpful to confirm rewrites/env.
+        try {
+          console.debug("[AIS] socket baseUrl:", baseUrl, "forcePolling:", forcePolling, "env NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
+        } catch {}
         socket = io(baseUrl, {
           path: "/socket.io",
           transports: forcePolling ? ["polling"] : ["polling", "websocket"],
@@ -745,7 +795,29 @@ export default function AisLiveMap({
       cancelled = true;
       teardown?.();
     };
-  }, [center, zoom, hydrated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  // Efecto separado para ACTUALIZAR la vista sin recrear el mapa
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m) return;
+    // Solo cuando hay valores válidos
+    if (center && Array.isArray(center) && center.length === 2) {
+      const cur = m.getCenter();
+      const dx = Math.abs(cur.lng - center[0]);
+      const dy = Math.abs(cur.lat - center[1]);
+      if (dx > 1e-6 || dy > 1e-6) {
+        m.jumpTo({ center: center as [number, number] });
+      }
+    }
+    if (typeof zoom === "number") {
+      const curZ = m.getZoom();
+      if (Math.abs(curZ - zoom) > 1e-6) {
+        m.setZoom(zoom);
+      }
+    }
+  }, [center, zoom]);
 
   if (!mounted) {
     // Render a lightweight placeholder on server / initial client render.
@@ -755,23 +827,6 @@ export default function AisLiveMap({
   return (
     <div className="fixed inset-0 z-0">
       <div ref={mapEl} className="w-full h-full">
-
-        {/* Diagnostics panel */}
-        <div className="absolute top-24 right-4 z-50 w-80 text-xs">
-          <div className="glass-card p-3 rounded-md border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
-            <div className="font-medium text-slate-900">Diagnosis AIS</div>
-            <div className="text-slate-600">State WS: {wsState ?? "—"}</div>
-            <div className="mt-2 text-slate-700 break-words">
-              <strong>Last Message:</strong>
-              <pre
-                className="max-h-32 overflow-auto text-xs p-1"
-                style={{ whiteSpace: "pre-wrap" }}
-              >
-                {lastMsg ?? "—"}
-              </pre>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

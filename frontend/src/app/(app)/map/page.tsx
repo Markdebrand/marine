@@ -1,7 +1,6 @@
 "use client";
 import { Suspense } from "react";
 import { Protected } from "@/components/auth/Protected";
-import AisLiveMap from "@/app/(app)/map/components/ais/AisLiveMap";
 
 export default function MapPage() {
   return (
@@ -24,8 +23,10 @@ export default function MapPage() {
           </div>
         }
       >
+        {/* El mapa ahora se renderiza persistentemente desde el layout. */}
         <Protected>
-          <AisLiveMap />
+          {/* Aquí puedes añadir overlays/controles específicos de la vista de mapa si lo deseas. */}
+          <div />
         </Protected>
       </Suspense>
     </>
