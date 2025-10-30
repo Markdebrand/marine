@@ -15,6 +15,7 @@ services:
     networks:
       - prod_net
       - test_net  # habilitar cuando exista la red de test
+      - proxy_global  # para acceder a alias hsomarine-prod-backend en la red global del proxy
 
 networks:
   prod_net:
@@ -23,6 +24,9 @@ networks:
   test_net:
     external: true
     name: hsomarine-test_app
+  proxy_global:
+    external: true
+    name: proxy-global
 
 volumes:
   caddy_data: {}
