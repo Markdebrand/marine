@@ -273,11 +273,11 @@ export default function AisLiveMap({
                         "interpolate",
                         ["linear"],
                         ["zoom"],
-                        0, 1.0,
-                        6, 1.3,
-                        10, 1.8,
-                        14, 2.4,
-                        18, 3.2
+                        0, 1.5,
+                        6, 2.0,
+                        10, 2.8,
+                        14, 3.6,
+                        18, 5.0
                       ],
                       "icon-allow-overlap": true,
                       "icon-rotate": ["get", "cog"],
