@@ -196,45 +196,45 @@ export default function AisLiveMap({
                           "interpolate",
                           ["linear"],
                           ["get", "point_count"],
-                          1, 0.9,
-                          100, 1.2,
-                          500, 1.5
+                          1, 1.5,
+                          100, 2.0,
+                          500, 2.8
                         ],
                         6,
                         [
                           "interpolate",
                           ["linear"],
                           ["get", "point_count"],
-                          1, 1.1,
-                          100, 1.4,
-                          500, 1.8
+                          1, 2.0,
+                          100, 2.8,
+                          500, 3.6
                         ],
                         10,
                         [
                           "interpolate",
                           ["linear"],
                           ["get", "point_count"],
-                          1, 1.5,
-                          100, 1.9,
-                          500, 2.4
+                          1, 2.8,
+                          100, 3.6,
+                          500, 4.8
                         ],
                         14,
                         [
                           "interpolate",
                           ["linear"],
                           ["get", "point_count"],
-                          1, 2.0,
-                          100, 2.6,
-                          500, 3.2
+                          1, 3.6,
+                          100, 4.6,
+                          500, 6.0
                         ],
                         18,
                         [
                           "interpolate",
                           ["linear"],
                           ["get", "point_count"],
-                          1, 2.6,
-                          100, 3.4,
-                          500, 4.2
+                          1, 5.0,
+                          100, 6.2,
+                          500, 8.0
                         ]
                       ],
                       "icon-allow-overlap": true,
