@@ -28,9 +28,6 @@ export default function Home() {
 
         <div className="grid items-center gap-10 md:grid-cols-2">
           <div>
-            <span className="inline-flex items-center rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-700 ring-1 ring-red-200">
-              MVP • Odoo SSoT
-            </span>
             <h1 className="mt-3 text-3xl sm:text-5xl font-semibold tracking-tight text-slate-900">
               One platform. <span className="text-red-600">AIS</span> in{" "}
               <span className="text-red-600">real time</span> for maritime
@@ -43,20 +40,11 @@ export default function Home() {
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
-                href="/map"
-                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-white text-base font-medium shadow hover:bg-red-700"
-              >
-                <Map className="h-5 w-5" /> View live map
-              </Link>
-              <Link
                 href="/about"
                 className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-slate-800 text-base font-medium ring-1 ring-slate-200 hover:bg-slate-50"
               >
                 <Play className="h-5 w-5 text-red-600" /> View demo
               </Link>
-            </div>
-            <div className="mt-6 text-sm text-slate-500">
-              Security: httpOnly JWT + CSRF • HTTPS • CSP • Roles from Odoo
             </div>
           </div>
 
@@ -218,14 +206,6 @@ export default function Home() {
               Compose.
             </li>
           </ul>
-          <div className="mt-4">
-            <Link
-              href="/contact"
-              className="inline-flex items-center rounded-lg border border-red-600 bg-red-50 px-4 py-2 text-red-700 font-medium hover:bg-red-100"
-            >
-              Request beta access
-            </Link>
-          </div>
         </div>
       </section>
     </main>

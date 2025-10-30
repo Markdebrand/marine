@@ -15,7 +15,7 @@ services:
     networks:
       - prod_net
       - test_net  # habilitar cuando exista la red de test
-      - proxy_global  # para acceder a alias hsomarine-prod-backend en la red global del proxy
+      - proxy_global  # permite resolver hsomarine-prod-backend/hsomarine-prod-frontend
 
 networks:
   prod_net:

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useState, useRef } from "react";
+import { useLayoutEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -12,12 +12,6 @@ const NAV_LINKS = [
   { href: "/services", label: "Services" },
   { href: "/contact", label: "Contact Us" },
 ] as const;
-
-// IconPhone removed - using lucide-react Phone icon instead
-
-// Removed IconGlobe function definition
-
-// Replaced IconUser function with lucide-react User component
 
 function IconMenu({ className = "w-7 h-7" }: { className?: string }) {
   return (
@@ -58,31 +52,30 @@ function IconClose({ className = "w-7 h-7" }: { className?: string }) {
 }
 
 function Navbar() {
-  const { status, user } = useAuth();
+  const { status } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const linksContainerRef = useRef<HTMLDivElement | null>(null);
   const [indicator, setIndicator] = useState({ left: 0, width: 0, opacity: 0 });
-  // Evitar mismatch SSR/CSR: mantener href estable en SSR y cambiar tras montar
-  const ctaHref = mounted && status === "authenticated" ? "/map" : "/login";
+  // CTA dependiendo del estado de auth
+  const ctaHref = useMemo(() => (status === "authenticated" ? "/map" : "/login"), [status]);
 
   // Prefetch common routes to speed up header navigation
-  useEffect(() => {
-    try {
-      NAV_LINKS.forEach((l) => router.prefetch(l.href));
-    } catch {}
-  }, [router]);
-
-  // Marcar como montado para poder cambiar CTA sin causar hydration error
-  useEffect(() => setMounted(true), []);
+  // Avoid prefetching everything on mount (can load extra JS). Let Link prefetch
+  // handle common cases and optionally prefetch on hover.
 
   useLayoutEffect(() => {
-    if (!mounted) return;
-    const update = () => {
+    // Use a rAF-scheduled update and ResizeObserver to avoid layout thrashing
+    let rafId: number | null = null;
+
+    const doUpdate = () => {
       const container = linksContainerRef.current;
-      if (!container) return setIndicator((s) => ({ ...s, opacity: 0 }));
+      if (!container) {
+        setIndicator((s) => ({ ...s, opacity: 0 }));
+        return;
+      }
+
       // Find active link by matching href; choose longest matching prefix
       let activeHref: string | null = null;
       for (const l of NAV_LINKS) {
@@ -97,24 +90,56 @@ function Navbar() {
       if (!activeHref) {
         for (const l of NAV_LINKS) if (l.href === pathname) activeHref = l.href;
       }
-      if (!activeHref) return setIndicator((s) => ({ ...s, opacity: 0 }));
+      if (!activeHref) {
+        setIndicator((s) => ({ ...s, opacity: 0 }));
+        return;
+      }
+
       const anchor = container.querySelector<HTMLAnchorElement>(`a[href="${activeHref}"]`);
-      if (!anchor) return setIndicator((s) => ({ ...s, opacity: 0 }));
+      if (!anchor) {
+        setIndicator((s) => ({ ...s, opacity: 0 }));
+        return;
+      }
       const linkRect = anchor.getBoundingClientRect();
       const contRect = container.getBoundingClientRect();
       const left = Math.round(linkRect.left - contRect.left);
       const width = Math.round(linkRect.width);
       setIndicator({ left, width, opacity: 1 });
     };
-    update();
-    window.addEventListener("resize", update);
+
+    const scheduleUpdate = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(doUpdate) as unknown as number;
+    };
+
+    // initial run
+    scheduleUpdate();
+
+    // Use ResizeObserver on the links container so we only react to relevant changes
+    let ro: ResizeObserver | null = null;
+    const observed = linksContainerRef.current;
+    try {
+      if (typeof ResizeObserver !== "undefined" && observed) {
+        ro = new ResizeObserver(scheduleUpdate);
+        ro.observe(observed);
+      } else {
+        // fallback to window resize
+        window.addEventListener("resize", scheduleUpdate);
+      }
+    } catch {
+      window.addEventListener("resize", scheduleUpdate);
+    }
+
     // also update after a short timeout to allow layout shifts
-    const t = window.setTimeout(update, 120);
+    const t = window.setTimeout(scheduleUpdate, 120);
+
     return () => {
-      window.removeEventListener("resize", update);
+      if (rafId) cancelAnimationFrame(rafId);
+  if (ro && observed) ro.unobserve(observed);
+      window.removeEventListener("resize", scheduleUpdate);
       clearTimeout(t);
     };
-  }, [pathname, mounted]);
+  }, [pathname]);
 
   return (
     <header className="w-full bg-transparent sticky top-0 z-50 pt-3">
@@ -150,12 +175,12 @@ function Navbar() {
 
           <div
             ref={linksContainerRef}
-            className="hidden lg:flex items-center gap-6 text-[16px] relative pb-3"
+            className="hidden lg:flex items-center gap-8 text-[16px] relative pb-1"
           >
             {/* sliding indicator */}
             <div
               aria-hidden
-              className="absolute bottom-0 left-0 h-0.5 bg-red-600 rounded transition-all duration-300"
+              className="absolute left-0 h-0.5 bg-red-600 rounded transition-all duration-300 bottom-0.5"
               style={{ left: indicator.left, width: indicator.width, opacity: indicator.opacity }}
             />
             {NAV_LINKS.map((link) => (
@@ -168,7 +193,7 @@ function Navbar() {
                     router.prefetch(link.href);
                   } catch {}
                 }}
-                className={`transition-colors hover:text-red-600 ${
+                className={`transition-colors hover:text-red-600 leading-none py-1 ${
                   pathname === link.href ||
                   (link.href !== "/" && pathname.startsWith(link.href))
                     ? "text-red-600"
