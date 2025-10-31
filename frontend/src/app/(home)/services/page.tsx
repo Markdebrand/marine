@@ -32,13 +32,14 @@ export default function ServicesPage() {
             </div>
           </div>
           <div className="rounded-2xl overflow-hidden shadow-sm">
-            <Image
-              src="/HSOMarineLogo.svg"
-              alt="Servicios"
-              width={960}
-              height={640}
-              className="w-full h-auto object-cover"
-            />
+            <div className="relative aspect-4/3 w-full overflow-hidden">
+              <Image
+                src="/images/servicios2webp.webp"
+                alt="Servicios"
+                fill
+                className="object-cover"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -295,13 +296,14 @@ export default function ServicesPage() {
       {/* Cierre con imagen + bullets */}
       <div className="mt-10 grid md:grid-cols-2 gap-8 items-center">
         <div className="rounded-2xl overflow-hidden shadow-sm">
-          <Image
-            src="/Logo-2.png"
-            alt="Resumen"
-            width={960}
-            height={640}
-            className="w-full h-auto object-contain"
-          />
+          <div className="relative aspect-4/3 w-full overflow-hidden">
+            <Image
+              src="/images/contact2webp.webp"
+              alt="Resumen"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
         <div>
           <div className="text-2xl font-semibold text-slate-900">

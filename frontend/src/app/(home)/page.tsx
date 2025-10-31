@@ -50,19 +50,17 @@ export default function Home() {
 
           {/* right visual panel */}
           <div className="relative">
-            <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-sky-50 via-white to-indigo-50 p-2 shadow-[0_10px_30px_rgba(2,6,23,0.08)] ring-1 ring-slate-200">
-              <div className="relative aspect-4/3 w-full overflow-hidden rounded-2xl">
-                <Image
-                  src="/HSOMarinewithslogan.svg"
-                  alt="HSO MARINE"
-                  fill
-                  className="object-contain p-6"
-                  priority
-                />
-                <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-white/0 via-white/0 to-white/0" />
-              </div>
-              <div className="absolute right-0 bottom-0 translate-x-10 translate-y-10 h-40 w-40 rounded-full bg-[rgba(239,68,68,0.18)] blur-[50px]" />
+            <div className="relative aspect-4/3 w-full overflow-hidden rounded-2xl">
+              <Image
+                src="/images/portada2webp.webp"
+                alt="HSO MARINE"
+                fill
+                className="object-cover"
+                priority
+              />
+              <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-white/0 via-white/0 to-white/0" />
             </div>
+            <div className="absolute right-0 bottom-0 translate-x-10 translate-y-10 h-40 w-40 rounded-full bg-[rgba(239,68,68,0.18)] blur-[50px]" />
           </div>
         </div>
       </section>
@@ -147,8 +145,7 @@ export default function Home() {
               <li className="flex items-start gap-3">
                 <Shield className="mt-0.5 h-5 w-5 text-red-600" />
                 <span>
-                  Odoo as SSoT: masters, watchlist/alerts, auditing,
-                  contracts.
+                  Odoo as SSoT: masters, watchlist/alerts, auditing, contracts.
                 </span>
               </li>
             </ul>
@@ -166,8 +163,7 @@ export default function Home() {
                 mini-track
               </li>
               <li>
-                • Watchlist/Alerts: CRUD in Odoo and triggers visible in the
-                UI
+                • Watchlist/Alerts: CRUD in Odoo and triggers visible in the UI
               </li>
             </ul>
           </div>
@@ -194,8 +190,8 @@ export default function Home() {
               enrichment).
             </li>
             <li>
-              Enable watchlist and alerts (geofence/port) with CRUD
-              synchronized with Odoo.
+              Enable watchlist and alerts (geofence/port) with CRUD synchronized
+              with Odoo.
             </li>
             <li>
               Instrument key metrics (SSE/REST latency, reconnects, provider
