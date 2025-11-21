@@ -64,7 +64,12 @@ export default function AisLiveMap({
   const mapRef = useRef<MLMap | null>(null);
   const pollingIntervalRef = useRef<number | null>(null);
   // GeoJSON-based rendering for performance
-  type AISProps = { name?: string; sog?: number; cog?: number };
+  type AISProps = { 
+    mmsi?: string;  // 🔥 AÑADIDO: Incluir MMSI en las propiedades
+    name?: string; 
+    sog?: number; 
+    cog?: number 
+  };
   type AISFeature = Feature<Point, AISProps> & { id: string };
   const featuresRef = useRef<Map<string, AISFeature>>(new Map());
 
@@ -73,33 +78,6 @@ export default function AisLiveMap({
   const [loadingDetails, setLoadingDetails] = useState(false);
   const vesselDetailsCache = useRef(new Map<string, VesselDetails>());
 
-  // --- Persistencia en localStorage ---
-  // Cargar barcos guardados al montar
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("ais_vessels");
-      if (raw) {
-        const arr: AISFeature[] = JSON.parse(raw);
-        for (const feat of arr) {
-          if (feat && feat.id) {
-            featuresRef.current.set(feat.id as string, feat);
-          }
-        }
-      }
-    } catch {}
-  }, []);
-
-  // Guardar barcos en localStorage cada vez que cambian
-  useEffect(() => {
-    const save = () => {
-      try {
-        const arr = Array.from(featuresRef.current.values());
-        localStorage.setItem("ais_vessels", JSON.stringify(arr));
-      } catch {}
-    };
-    const interval = setInterval(save, 2000);
-    return () => clearInterval(interval);
-  }, []);
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
   const flushTimerRef = useRef<number | null>(null);
@@ -114,12 +92,34 @@ export default function AisLiveMap({
   const [connected, setConnected] = useState(false);
   const [vesselCount, setVesselCount] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  const [loadingVesselCount, setLoadingVesselCount] = useState(false);
 
   const [hydrated, setHydrated] = useState(false);
   const [mounted, setMounted] = useState(false);
   // Capturar el centro/zoom iniciales para usarlos solo en la creación del mapa
   const initialCenterRef = useRef(center);
   const initialZoomRef = useRef(zoom);
+
+  // Función para obtener el total real de barcos desde la API
+  const fetchTotalVessels = async () => {
+    setLoadingVesselCount(true);
+    try {
+      const response = await apiFetch<{
+        total: number;
+        page: number;
+        page_size: number;
+        items: Array<{ id: string; lat: number; lon: number }>;
+      }>("/aisstream/positions?page_size=1");
+      
+      setVesselCount(response.total);
+      setLastUpdate(new Date().toLocaleTimeString());
+      console.debug(`[AIS] Total de barcos actualizado: ${response.total}`);
+    } catch (error) {
+      console.error("[AIS] Error al obtener el total de barcos:", error);
+    } finally {
+      setLoadingVesselCount(false);
+    }
+  };
 
   useEffect(() => {
     // mark component as hydrated on client to avoid SSR/CSR mismatches
@@ -460,33 +460,58 @@ export default function AisLiveMap({
             layers: [LAYER_SHIP_SYMBOL_ID],
           });
           
+          // 🔍 DEBUG: Ver qué features encontramos (versión segura)
+          console.log("🔍 [DEBUG] Features encontrados al hacer click:", {
+            totalFeatures: features.length,
+            features: features.map(f => ({
+              id: f.id,
+              layer: f.layer.id,
+              source: f.source,
+              hasProperties: !!f.properties,
+              propertyKeys: f.properties ? Object.keys(f.properties) : [],
+              hasMmsiProp: f.properties ? 'mmsi' in f.properties : false
+            }))
+          });
+          
           if (!features || features.length === 0) return;
           
           const feature = features[0];
-          // Con promoteId eliminado, feature.id vendrá del id del Feature.
-          // Como respaldo, intentamos tomar id/mmsi desde properties si existiera.
           const props = (feature.properties ?? {}) as Record<string, unknown>;
-          const fid = feature.id as string | number | undefined;
-          const mmsi = fid != null ? String(fid) : (props?.id ?? props?.mmsi ? String(props.id ?? props.mmsi) : "");
-          if (!mmsi) {
-            console.debug("[AIS] click sin mmsi/id válido", { feature, props, fid });
+          
+          // 🔧 SOLUCIÓN: Buscar específicamente en props.mmsi
+          let mmsi = props?.mmsi ? String(props.mmsi) : "";
+          
+          console.log("🔍 [DEBUG] MMSI extraído de propiedades:", mmsi, "Longitud:", mmsi.length);
+          
+          // 🔧 SOLUCIÓN: Validación más flexible (hasta 9 dígitos)
+          if (!mmsi || mmsi.length > 9 || !/^\d+$/.test(mmsi)) {
+            console.warn("🚫 [CLICK] Ignorando click en feature sin MMSI válido:", {
+              featureId: feature.id,
+              mmsi: mmsi,
+              properties: props,
+              reason: mmsi ? `MMSI inválido (longitud: ${mmsi.length})` : "No se encontró MMSI en propiedades"
+            });
             return;
           }
           
           // Verificar si ya tenemos los detalles en cache
           const cached = vesselDetailsCache.current.get(mmsi);
           if (cached) {
+            console.log("🔍 [DEBUG] Usando cache para MMSI:", mmsi);
             setSelectedVessel(cached);
             return;
           }
           
+          console.log("🔍 [DEBUG] Solicitando detalles para MMSI válido:", mmsi);
           setLoadingDetails(true);
           try {
             const response = await apiFetch<VesselDetails>(`/details/${mmsi}`);
             vesselDetailsCache.current.set(mmsi, response);
             setSelectedVessel(response);
+            console.log("🔍 [DEBUG] Detalles recibidos para MMSI:", mmsi);
           } catch (error) {
             console.error("Error fetching vessel details:", error);
+            console.error("🔍 [DEBUG] Error para MMSI:", mmsi, error);
           } finally {
             setLoadingDetails(false);
           }
@@ -759,8 +784,8 @@ export default function AisLiveMap({
               updatedCount++;
             }
             
-            setVesselCount(featuresRef.current.size);
-            setLastUpdate(new Date().toLocaleTimeString());
+            // NOTA: Ya no actualizamos vesselCount desde aquí
+            // setVesselCount(featuresRef.current.size);
             flushNeededRef.current = true;
             
             console.debug(`[AIS] Polling actualizado: ${updatedCount} barcos, total: ${featuresRef.current.size}`);
@@ -782,15 +807,31 @@ export default function AisLiveMap({
       // Iniciar polling
       startPolling();
 
+      // Obtener el total real de barcos al inicializar el componente
+      void fetchTotalVessels();
+
       function upsertFeature(v: Vessel) {
+        // 🔧 SOLUCIÓN: Permitir MMSI de hasta 9 dígitos, no exactamente 9
+        if (!v.mmsi || v.mmsi.length > 9 || !/^\d+$/.test(v.mmsi)) {
+          console.warn("🚫 [FILTER] Ignorando barco con MMSI inválido:", {
+            mmsi: v.mmsi,
+            length: v.mmsi?.length,
+            lon: v.lon,
+            lat: v.lat
+          });
+          return; // No agregar al mapa
+        }
+        
         if (!Number.isFinite(v.lon) || !Number.isFinite(v.lat)) return;
+        
         const id = v.mmsi;
         const nextProps: AISProps = {
+          mmsi: v.mmsi, // 🔥 FORZAR que el MMSI esté en propiedades
           name: v.name,
           sog: Number.isFinite(v.sog ?? NaN) ? v.sog : undefined,
-          // MapLibre espera un número en icon-rotate; si falta, usa 0 para evitar errores.
           cog: Number.isFinite(v.cog ?? NaN) ? (v.cog as number) : 0,
         };
+        
         const existing = featuresRef.current.get(id);
         if (existing) {
           existing.geometry.coordinates = [v.lon, v.lat];
@@ -805,6 +846,13 @@ export default function AisLiveMap({
           featuresRef.current.set(id, feat);
         }
         flushNeededRef.current = true;
+        
+        // 🔍 DEBUG: Verificar que las propiedades se asignaron
+        console.log("✅ [UPSERT] Feature creado/actualizado:", {
+          mmsi: v.mmsi,
+          hasProperties: !!featuresRef.current.get(id)?.properties,
+          propertyKeys: featuresRef.current.get(id)?.properties ? Object.keys(featuresRef.current.get(id)!.properties!) : []
+        });
       }
 
       // Clean up
@@ -940,13 +988,25 @@ export default function AisLiveMap({
           <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-rose-500'}`} />
           <span>{connected ? "Conectado" : "Desconectado"}</span>
           <span className="text-slate-600">·</span>
-          <span className="text-slate-600">{vesselCount} buques</span>
+          <span className="text-slate-600">{vesselCount.toLocaleString()} buques</span>
           {lastUpdate && (
             <>
               <span className="text-slate-600">·</span>
               <span className="text-slate-600">{lastUpdate}</span>
             </>
           )}
+          {/* Botón para actualizar el contador de barcos */}
+          <button
+            onClick={fetchTotalVessels}
+            disabled={loadingVesselCount}
+            className="ml-2 px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingVesselCount ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              '↻'
+            )}
+          </button>
         </div>
       </div>
 

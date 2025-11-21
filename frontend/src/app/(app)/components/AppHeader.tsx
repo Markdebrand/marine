@@ -30,7 +30,7 @@ export default function AppHeader() {
   };
 
   const containerClass = isMap
-    ? "fixed inset-x-6 top-4 z-[100] pointer-events-auto"
+    ? "fixed top-2 z-[100] pointer-events-auto"
     : "sticky top-4 z-50";
 
   useEffect(() => {
@@ -50,38 +50,38 @@ export default function AppHeader() {
   }, [menuOpen]);
 
   return (
-    <div className={containerClass}>
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="glass-card flex items-center justify-between gap-4 p-3 border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
-          <div className="flex items-center gap-3">
+    <div className={containerClass} style={isMap ? { left: '50%', transform: 'translateX(-50%)' } : {}}>
+      <div className={`${isMap ? 'w-max' : 'max-w-7xl'} px-4`}>
+        <div className="glass-card flex items-center justify-between gap-4 p-2 border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
+          <div className="flex items-center gap-2">
             <Image
               src="/Icon.png"
               alt="MarinaLive"
-              width={28}
-              height={28}
-              className="h-7 w-7 sm:hidden"
+              width={24}
+              height={24}
+              className="h-6 w-6 sm:hidden"
             />
             <Image
               src="/HSOMarineIsotype.svg"
               alt="HSO Marine"
-              width={180}
-              height={28}
-              className="hidden sm:inline-block h-7 w-auto"
+              width={160}
+              height={24}
+              className="hidden sm:inline-block h-6 w-auto"
             />
             <span className="sr-only">HSO Marine</span>
           </div>
-          <div className="flex items-center gap-2 relative">
-            <nav className="flex items-center gap-2">
+          <div className="flex items-center gap-1 relative">
+            <nav className="flex items-center gap-1">
               {link("/dashboard", "Dashboard")}
               {link("/map", "Live Map")}
               {link("/watchlist", "Watchlist")}
             </nav>
             {/* Profile menu */}
-            <div className="ml-2">
+            <div className="ml-1">
               <button
                 ref={btnRef}
                 type="button"
-                className="h-9 w-9 rounded-full bg-red-600 text-white flex items-center justify-center shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="h-8 w-8 rounded-full bg-red-600 text-white flex items-center justify-center shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-xs"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
                 onClick={() => {
