@@ -178,6 +178,22 @@ class AISBridgeService:
     def _process_static_data(self, ais_message):
         """Procesa datos estáticos del barco"""
         dimensions = ais_message.get('Dimension', {})
+        ship_id = str(ais_message.get('UserID', 'N/A'))
+        
+        # Procesar ETA
+        eta_obj = ais_message.get('Eta', {})
+        eta_formatted = "N/A"
+        if isinstance(eta_obj, dict) and eta_obj:
+            month = eta_obj.get('Month', 0)
+            day = eta_obj.get('Day', 0)
+            hour = eta_obj.get('Hour', 0)
+            minute = eta_obj.get('Minute', 0)
+            
+            # Validar que los valores sean válidos
+            if month > 0 and day > 0:
+                # Usar año actual como referencia
+                current_year = datetime.now(timezone.utc).year
+                eta_formatted = f"{current_year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}"
         
         return {
             "ship_name": ais_message.get('Name', ais_message.get('ShipName', 'N/A')).strip(),
@@ -193,7 +209,7 @@ class AISBridgeService:
                 "width": dimensions.get('C', 0) + dimensions.get('D', 0)
             },
             "fix_type": ais_message.get('FixType', 'N/A'),
-            "eta": ais_message.get('ETA', 'N/A'),
+            "eta": eta_formatted,  # Ahora formateado correctamente
             "draught": ais_message.get('Draught', ais_message.get('MaximumStaticDraught', 'N/A')),
             "destination": ais_message.get('Destination', 'N/A'),
             "timestamp": datetime.now(timezone.utc).isoformat()

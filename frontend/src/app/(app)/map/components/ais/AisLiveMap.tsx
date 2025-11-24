@@ -17,8 +17,8 @@ type Vessel = {
   mmsi: string;
   lon: number;
   lat: number;
-  cog?: number; // course over ground in degrees
-  sog?: number; // speed over ground
+  cog?: number;
+  sog?: number;
   name?: string;
 };
 
@@ -46,6 +46,13 @@ type VesselDetails = {
   status: string;
 };
 
+// 🆕 Tipo para el error de barco no disponible
+type VesselError = {
+  mmsi: string;
+  message: string;
+  type: 'not_found' | 'timeout' | 'error';
+};
+
 type Props = {
   center?: [number, number];
   zoom?: number;
@@ -55,7 +62,6 @@ export default function AisLiveMap({
   center = [-3.7038, 40.4168],
   zoom = 3,
 }: Props) {
-  // If a persisted view exists in the store, prefer it as the initial viewport.
   const persistedCenter = useMapStore((s) => s.center);
   const persistedZoom = useMapStore((s) => s.zoom);
   if (persistedCenter) center = persistedCenter;
@@ -63,9 +69,9 @@ export default function AisLiveMap({
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
   const pollingIntervalRef = useRef<number | null>(null);
-  // GeoJSON-based rendering for performance
+  
   type AISProps = { 
-    mmsi?: string;  // 🔥 AÑADIDO: Incluir MMSI en las propiedades
+    mmsi?: string;
     name?: string; 
     sog?: number; 
     cog?: number 
@@ -73,10 +79,12 @@ export default function AisLiveMap({
   type AISFeature = Feature<Point, AISProps> & { id: string };
   const featuresRef = useRef<Map<string, AISFeature>>(new Map());
 
-  // Estados para los detalles del barco
   const [selectedVessel, setSelectedVessel] = useState<VesselDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const vesselDetailsCache = useRef(new Map<string, VesselDetails>());
+  
+  // 🆕 Estado para manejar errores de barcos
+  const [vesselError, setVesselError] = useState<VesselError | null>(null);
 
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
@@ -96,11 +104,9 @@ export default function AisLiveMap({
 
   const [hydrated, setHydrated] = useState(false);
   const [mounted, setMounted] = useState(false);
-  // Capturar el centro/zoom iniciales para usarlos solo en la creación del mapa
   const initialCenterRef = useRef(center);
   const initialZoomRef = useRef(zoom);
 
-  // Función para obtener el total real de barcos desde la API
   const fetchTotalVessels = async () => {
     setLoadingVesselCount(true);
     try {
@@ -122,25 +128,19 @@ export default function AisLiveMap({
   };
 
   useEffect(() => {
-    // mark component as hydrated on client to avoid SSR/CSR mismatches
     setHydrated(true);
-    // additionally track mounted to avoid rendering heavy client-only DOM
-    // on the first render — this prevents hydration mismatches.
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    // Inicializamos el mapa y los subsistemas SOLO una vez, cuando esté hidratado
     if (!hydrated) return;
     if (!mapEl.current) return;
-    // Evitar re-inicializar si ya existe una instancia
     if (mapRef.current) return;
     let cancelled = false;
     let teardown: (() => void) | undefined;
 
     (async () => {
       const maplibregl = (await import("maplibre-gl")).default;
-      // Basic raster OSM style
       const style: StyleSpecification = {
         version: 8,
         sources: {
@@ -162,14 +162,12 @@ export default function AisLiveMap({
       const map = new maplibregl.Map({
         container: mapEl.current!,
         style,
-        // Usar SOLO los valores iniciales para la creación
         center: initialCenterRef.current,
         zoom: initialZoomRef.current,
         attributionControl: false,
       });
       mapRef.current = map;
 
-      // Setup GeoJSON source/layers once map is loaded
       const onLoad = () => {
         if (!mapRef.current?.getSource(SOURCE_ID)) {
           const sourceSpec = {
@@ -178,7 +176,6 @@ export default function AisLiveMap({
               type: "FeatureCollection",
               features: [],
             } as FeatureCollection<Point, AISProps>,
-            // Activamos clustering para escalar cuando hay miles de puntos.
             cluster: true,
             clusterRadius: 60,
             clusterMaxZoom: 12,
@@ -186,7 +183,6 @@ export default function AisLiveMap({
           mapRef.current!.addSource(SOURCE_ID, sourceSpec);
         }
 
-        // Add ship icon image to map
         if (mapRef.current) {
           if (!mapRef.current.hasImage(SHIP_IMAGE_ID)) {
             const img = new window.Image(24, 24);
@@ -194,7 +190,6 @@ export default function AisLiveMap({
               try {
                 if (!mapRef.current) return;
                 mapRef.current.addImage(SHIP_IMAGE_ID, img, { pixelRatio: 2 });
-                // Cluster layer usando icono de barco + contador
                 if (!mapRef.current.getLayer(LAYER_CLUSTERS_ID)) {
                   mapRef.current.addLayer({
                     id: LAYER_CLUSTERS_ID,
@@ -203,8 +198,6 @@ export default function AisLiveMap({
                     filter: ["has", "point_count"],
                     layout: {
                       "icon-image": SHIP_IMAGE_ID,
-                      // Escala combinada por tamaño de cluster y nivel de zoom
-                      // Top-level zoom interpolate; outputs incorporate cluster size factor
                       "icon-size": [
                         "interpolate",
                         ["linear"],
@@ -277,7 +270,6 @@ export default function AisLiveMap({
                     },
                   });
                 }
-                // Add SymbolLayer after image is loaded
                 if (!mapRef.current.getLayer(LAYER_SHIP_SYMBOL_ID)) {
                   const symbolLayer: SymbolLayerSpecification = {
                     id: LAYER_SHIP_SYMBOL_ID,
@@ -286,7 +278,6 @@ export default function AisLiveMap({
                     filter: ["!", ["has", "point_count"]],
                     layout: {
                       "icon-image": SHIP_IMAGE_ID,
-                      // Hacer el barco más grande al acercar (zoom)
                       "icon-size": [
                         "interpolate",
                         ["linear"],
@@ -308,8 +299,6 @@ export default function AisLiveMap({
             };
             img.src = "/images/ship.svg";
           } else {
-            // Add SymbolLayer if image already loaded
-            // Cluster layer usando icono de barco + contador
             if (!mapRef.current.getLayer(LAYER_CLUSTERS_ID)) {
               mapRef.current.addLayer({
                 id: LAYER_CLUSTERS_ID,
@@ -318,7 +307,6 @@ export default function AisLiveMap({
                 filter: ["has", "point_count"],
                 layout: {
                   "icon-image": SHIP_IMAGE_ID,
-                  // Top-level zoom interpolate; outputs incorporate cluster size factor
                   "icon-size": [
                     "interpolate",
                     ["linear"],
@@ -420,7 +408,6 @@ export default function AisLiveMap({
         }
         sourceReadyRef.current = true;
 
-        // Restore map view if persisted (extra safety after load)
         try {
           if (mapRef.current) {
             const storeCenter = useMapStore.getState().center;
@@ -434,7 +421,6 @@ export default function AisLiveMap({
           }
         } catch {}
 
-        // Keep the stored viewport in sync when the user moves/zooms the map
         if (mapRef.current) {
           const onMoveEnd = () => {
             try {
@@ -444,7 +430,6 @@ export default function AisLiveMap({
             } catch {}
           };
           mapRef.current.on("moveend", onMoveEnd);
-          // remove listener on source teardown
           const originalTear = teardown;
           teardown = () => {
             try {
@@ -454,70 +439,68 @@ export default function AisLiveMap({
           };
         }
 
-        // Evento de clic en barcos individuales para mostrar detalles
+        // 🔧 MODIFICADO: Evento de clic con manejo de errores
         mapRef.current.on("click", LAYER_SHIP_SYMBOL_ID, async (e) => {
           const features = mapRef.current!.queryRenderedFeatures(e.point, {
             layers: [LAYER_SHIP_SYMBOL_ID],
-          });
-          
-          // 🔍 DEBUG: Ver qué features encontramos (versión segura)
-          console.log("🔍 [DEBUG] Features encontrados al hacer click:", {
-            totalFeatures: features.length,
-            features: features.map(f => ({
-              id: f.id,
-              layer: f.layer.id,
-              source: f.source,
-              hasProperties: !!f.properties,
-              propertyKeys: f.properties ? Object.keys(f.properties) : [],
-              hasMmsiProp: f.properties ? 'mmsi' in f.properties : false
-            }))
           });
           
           if (!features || features.length === 0) return;
           
           const feature = features[0];
           const props = (feature.properties ?? {}) as Record<string, unknown>;
-          
-          // 🔧 SOLUCIÓN: Buscar específicamente en props.mmsi
           let mmsi = props?.mmsi ? String(props.mmsi) : "";
           
-          console.log("🔍 [DEBUG] MMSI extraído de propiedades:", mmsi, "Longitud:", mmsi.length);
-          
-          // 🔧 SOLUCIÓN: Validación más flexible (hasta 9 dígitos)
           if (!mmsi || mmsi.length > 9 || !/^\d+$/.test(mmsi)) {
-            console.warn("🚫 [CLICK] Ignorando click en feature sin MMSI válido:", {
-              featureId: feature.id,
-              mmsi: mmsi,
-              properties: props,
-              reason: mmsi ? `MMSI inválido (longitud: ${mmsi.length})` : "No se encontró MMSI en propiedades"
-            });
             return;
           }
           
-          // Verificar si ya tenemos los detalles en cache
+          // Limpiar estados previos
+          setVesselError(null);
+          setSelectedVessel(null);
+          
+          // Verificar cache
           const cached = vesselDetailsCache.current.get(mmsi);
           if (cached) {
-            console.log("🔍 [DEBUG] Usando cache para MMSI:", mmsi);
             setSelectedVessel(cached);
             return;
           }
           
-          console.log("🔍 [DEBUG] Solicitando detalles para MMSI válido:", mmsi);
           setLoadingDetails(true);
           try {
             const response = await apiFetch<VesselDetails>(`/details/${mmsi}`);
             vesselDetailsCache.current.set(mmsi, response);
             setSelectedVessel(response);
-            console.log("🔍 [DEBUG] Detalles recibidos para MMSI:", mmsi);
-          } catch (error) {
-            console.error("Error fetching vessel details:", error);
-            console.error("🔍 [DEBUG] Error para MMSI:", mmsi, error);
+          } catch (error: any) {
+            // Determinar el tipo de error
+            const status = error?.response?.status || error?.status;
+            
+            if (status === 404) {
+              setVesselError({
+                mmsi,
+                message: "This vessel isn't sending static data right now",
+                type: 'not_found'
+              });
+            } else if (status === 408) {
+              setVesselError({
+                mmsi,
+                message: "Timeout waiting for vessel data",
+                type: 'timeout'
+              });
+            } else {
+              setVesselError({
+                mmsi,
+                message: "Error loading vessel details",
+                type: 'error'
+              });
+            }
+            
+            console.error("[VESSEL] Error fetching details:", error);
           } finally {
             setLoadingDetails(false);
           }
         });
 
-        // Cambiar cursor al pasar sobre barcos
         mapRef.current.on("mouseenter", LAYER_SHIP_SYMBOL_ID, () => {
           mapRef.current!.getCanvas().style.cursor = "pointer";
         });
@@ -526,7 +509,6 @@ export default function AisLiveMap({
           mapRef.current!.getCanvas().style.cursor = "";
         });
 
-        // Carga inicial paginada por REST en el área visible
         void (async () => {
           try {
             const m = mapRef.current;
@@ -537,12 +519,10 @@ export default function AisLiveMap({
             const east = b.getEast();
             const north = b.getNorth();
 
-            // Limitar la cantidad inicial para no bloquear el main thread
             const PAGE_SIZE = 1000;
-            const MAX_ITEMS = 5000; // tope inicial
+            const MAX_ITEMS = 5000;
             let page = 1;
             let received = 0;
-            // Bucle de páginas hasta llenar tope o quedarnos sin datos
             while (received < MAX_ITEMS) {
               const res = await apiFetch<{
                 total: number;
@@ -571,9 +551,7 @@ export default function AisLiveMap({
               }
               received += list.length;
               page += 1;
-              // Ceder al event loop para mantener la UI fluida
               await new Promise((r) => setTimeout(r, 0));
-              // Si el mapa cambió de bounds mientras cargábamos, detenemos la precarga
               const nb = m.getBounds();
               if (
                 nb.getWest() !== west ||
@@ -590,7 +568,6 @@ export default function AisLiveMap({
           }
         })();
 
-        // Zoom into clusters on click
         const m = mapRef.current!;
         m.on("click", LAYER_CLUSTERS_ID, (e) => {
           const features = (m.queryRenderedFeatures(e.point, {
@@ -637,7 +614,6 @@ export default function AisLiveMap({
       if (mapRef.current?.loaded()) onLoad();
       else mapRef.current?.once("load", onLoad);
 
-      // Throttled flush to update source data in batches
       const startFlush = () => {
         if (flushTimerRef.current != null) return;
         flushTimerRef.current = window.setInterval(() => {
@@ -647,7 +623,6 @@ export default function AisLiveMap({
             !mapRef.current
           )
             return;
-          // Culling por viewport + muestreo estable para limitar draw calls
           const m = mapRef.current;
           const b = m.getBounds();
           const west = b.getWest();
@@ -655,7 +630,7 @@ export default function AisLiveMap({
           const east = b.getEast();
           const north = b.getNorth();
           const crossesAntimeridian = west > east;
-          const MAX_RENDERED = 8000; // tope para mantener fluidez
+          const MAX_RENDERED = 8000;
 
           const all = Array.from(featuresRef.current.values());
           const visible = all.filter((f) => {
@@ -669,7 +644,6 @@ export default function AisLiveMap({
           let features: typeof visible = visible;
           if (features.length > MAX_RENDERED) {
             const stride = Math.ceil(features.length / MAX_RENDERED);
-            // Muestreo estable por id para evitar parpadeos
             const stableHash = (s: string) => {
               let h = 2166136261 >>> 0;
               for (let i = 0; i < s.length; i++) {
@@ -695,7 +669,6 @@ export default function AisLiveMap({
       };
       startFlush();
 
-      // Debounced refresh on viewport changes: fetch first page for current bounds
       let refreshTimer: number | null = null;
       const requestViewportPage = async () => {
         try {
@@ -733,7 +706,6 @@ export default function AisLiveMap({
       };
       mapRef.current?.on("moveend", scheduleViewportRefresh);
 
-      // Polling periódico para actualizar posiciones desde /aisstream/positions
       const startPolling = () => {
         setConnected(true);
         console.debug("[AIS] Iniciando polling periódico a /aisstream/positions");
@@ -749,7 +721,6 @@ export default function AisLiveMap({
             const east = b.getEast();
             const north = b.getNorth();
             
-            // Obtener primera página de posiciones en el viewport actual
             const res = await apiFetch<{
               total: number;
               page: number;
@@ -776,16 +747,13 @@ export default function AisLiveMap({
                 mmsi: String(item.id),
                 lon: item.lon,
                 lat: item.lat,
-                // Los datos de /aisstream/positions no incluyen cog/sog/name por ahora
-                cog: 0, // Valor por defecto
+                cog: 0,
                 sog: undefined,
                 name: undefined,
               });
               updatedCount++;
             }
             
-            // NOTA: Ya no actualizamos vesselCount desde aquí
-            // setVesselCount(featuresRef.current.size);
             flushNeededRef.current = true;
             
             console.debug(`[AIS] Polling actualizado: ${updatedCount} barcos, total: ${featuresRef.current.size}`);
@@ -795,38 +763,26 @@ export default function AisLiveMap({
           }
         };
         
-        // Polling inicial
         void pollPositions();
         
-        // Configurar polling periódico cada 30 segundos
         pollingIntervalRef.current = window.setInterval(() => {
           void pollPositions();
         }, 30000);
       };
       
-      // Iniciar polling
       startPolling();
-
-      // Obtener el total real de barcos al inicializar el componente
       void fetchTotalVessels();
 
       function upsertFeature(v: Vessel) {
-        // 🔧 SOLUCIÓN: Permitir MMSI de hasta 9 dígitos, no exactamente 9
         if (!v.mmsi || v.mmsi.length > 9 || !/^\d+$/.test(v.mmsi)) {
-          console.warn("🚫 [FILTER] Ignorando barco con MMSI inválido:", {
-            mmsi: v.mmsi,
-            length: v.mmsi?.length,
-            lon: v.lon,
-            lat: v.lat
-          });
-          return; // No agregar al mapa
+          return;
         }
         
         if (!Number.isFinite(v.lon) || !Number.isFinite(v.lat)) return;
         
         const id = v.mmsi;
         const nextProps: AISProps = {
-          mmsi: v.mmsi, // 🔥 FORZAR que el MMSI esté en propiedades
+          mmsi: v.mmsi,
           name: v.name,
           sog: Number.isFinite(v.sog ?? NaN) ? v.sog : undefined,
           cog: Number.isFinite(v.cog ?? NaN) ? (v.cog as number) : 0,
@@ -846,24 +802,14 @@ export default function AisLiveMap({
           featuresRef.current.set(id, feat);
         }
         flushNeededRef.current = true;
-        
-        // 🔍 DEBUG: Verificar que las propiedades se asignaron
-        console.log("✅ [UPSERT] Feature creado/actualizado:", {
-          mmsi: v.mmsi,
-          hasProperties: !!featuresRef.current.get(id)?.properties,
-          propertyKeys: featuresRef.current.get(id)?.properties ? Object.keys(featuresRef.current.get(id)!.properties!) : []
-        });
       }
 
-      // Clean up
       const cleanup = () => {
-        // Limpiar polling
         if (pollingIntervalRef.current != null) {
           window.clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
         }
         setConnected(false);
-        // Remove layers before removing source
         try {
           if (mapRef.current?.getLayer(LAYER_SHIP_SYMBOL_ID))
             mapRef.current.removeLayer(LAYER_SHIP_SYMBOL_ID);
@@ -879,7 +825,6 @@ export default function AisLiveMap({
         mapRef.current?.remove();
         mapRef.current = null;
         if (refreshTimer != null) window.clearTimeout(refreshTimer);
-        // featuresRef.current.clear(); // Mantener barcos en memoria para persistencia
       };
 
       teardown = cleanup;
@@ -890,14 +835,11 @@ export default function AisLiveMap({
       cancelled = true;
       teardown?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
 
-  // Efecto separado para ACTUALIZAR la vista sin recrear el mapa
   useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
-    // Solo cuando hay valores válidos
     if (center && Array.isArray(center) && center.length === 2) {
       const cur = m.getCenter();
       const dx = Math.abs(cur.lng - center[0]);
@@ -915,7 +857,6 @@ export default function AisLiveMap({
   }, [center, zoom]);
 
   if (!mounted) {
-    // Render a lightweight placeholder on server / initial client render.
     return <div className="w-full h-[60vh] bg-slate-50" aria-hidden />;
   }
 
@@ -923,7 +864,37 @@ export default function AisLiveMap({
     <div className="fixed inset-0 z-0">
       <div ref={mapEl} className="w-full h-full" />
       
-      {/* Panel de detalles del barco */}
+      {/* 🆕 Panel de error cuando el barco no envía datos estáticos */}
+      {vesselError && (
+        <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10 border-l-4 border-orange-500">
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex items-center gap-3">
+              <div className="text-orange-500 text-2xl">⚠️</div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Vessel Not Available</h3>
+                <p className="text-sm text-gray-600">MMSI: {vesselError.mmsi}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setVesselError(null)}
+              className="text-gray-500 hover:text-gray-700 text-xl"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <p className="text-gray-700">
+              {vesselError.message}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              The vessel may not be broadcasting static data at this moment. Try again later.
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {/* Panel de detalles del barco (exitoso) */}
       {selectedVessel && (
         <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10">
           <div className="flex justify-between items-start mb-4">
@@ -995,7 +966,6 @@ export default function AisLiveMap({
               <span className="text-slate-600">{lastUpdate}</span>
             </>
           )}
-          {/* Botón para actualizar el contador de barcos */}
           <button
             onClick={fetchTotalVessels}
             disabled={loadingVesselCount}

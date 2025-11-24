@@ -35,7 +35,7 @@ async def get_ship_details(
 
     try:
         # Usar el servicio existente para obtener datos estáticos
-        ship_data = await service.get_ship_static_data(mmsi, timeout=30.0)
+        ship_data = await service.get_ship_static_data(mmsi, timeout=10.0)
         print(f"Resultado del servicio: {ship_data}")
         
         if ship_data:
