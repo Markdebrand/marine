@@ -11,16 +11,46 @@ import type {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Feature, FeatureCollection, Point } from "geojson";
-import type { Socket } from "socket.io-client";
 import { apiFetch } from "@/lib/api";
 
 type Vessel = {
   mmsi: string;
   lon: number;
   lat: number;
-  cog?: number; // course over ground in degrees
-  sog?: number; // speed over ground
+  cog?: number;
+  sog?: number;
   name?: string;
+};
+
+type VesselDetails = {
+  mmsi: string;
+  data: {
+    ship_name: string;
+    imo_number: number;
+    call_sign: string;
+    ship_type: string;
+    dimensions: {
+      a: number;
+      b: number;
+      c: number;
+      d: number;
+      length: number;
+      width: number;
+    };
+    fix_type: number;
+    eta: string;
+    draught: number;
+    destination: string;
+    timestamp: string;
+  };
+  status: string;
+};
+
+// 🆕 Tipo para el error de barco no disponible
+type VesselError = {
+  mmsi: string;
+  message: string;
+  type: 'not_found' | 'timeout' | 'error';
 };
 
 type Props = {
@@ -32,46 +62,30 @@ export default function AisLiveMap({
   center = [-3.7038, 40.4168],
   zoom = 3,
 }: Props) {
-  // If a persisted view exists in the store, prefer it as the initial viewport.
   const persistedCenter = useMapStore((s) => s.center);
   const persistedZoom = useMapStore((s) => s.zoom);
   if (persistedCenter) center = persistedCenter;
   if (persistedZoom != null) zoom = persistedZoom;
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  // GeoJSON-based rendering for performance
-  type AISProps = { name?: string; sog?: number; cog?: number };
+  const pollingIntervalRef = useRef<number | null>(null);
+  
+  type AISProps = { 
+    mmsi?: string;
+    name?: string; 
+    sog?: number; 
+    cog?: number 
+  };
   type AISFeature = Feature<Point, AISProps> & { id: string };
   const featuresRef = useRef<Map<string, AISFeature>>(new Map());
 
-  // --- Persistencia en localStorage ---
-  // Cargar barcos guardados al montar
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("ais_vessels");
-      if (raw) {
-        const arr: AISFeature[] = JSON.parse(raw);
-        for (const feat of arr) {
-          if (feat && feat.id) {
-            featuresRef.current.set(feat.id as string, feat);
-          }
-        }
-      }
-    } catch {}
-  }, []);
+  const [selectedVessel, setSelectedVessel] = useState<VesselDetails | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const vesselDetailsCache = useRef(new Map<string, VesselDetails>());
+  
+  // 🆕 Estado para manejar errores de barcos
+  const [vesselError, setVesselError] = useState<VesselError | null>(null);
 
-  // Guardar barcos en localStorage cada vez que cambian
-  useEffect(() => {
-    const save = () => {
-      try {
-        const arr = Array.from(featuresRef.current.values());
-        localStorage.setItem("ais_vessels", JSON.stringify(arr));
-      } catch {}
-    };
-    const interval = setInterval(save, 2000);
-    return () => clearInterval(interval);
-  }, []);
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
   const flushTimerRef = useRef<number | null>(null);
@@ -83,45 +97,50 @@ export default function AisLiveMap({
   const LAYER_SHIP_SYMBOL_ID = "vessels-ship-symbol";
   const SHIP_IMAGE_ID = "ship-icon";
 
-  // const [connected, setConnected] = useState(false);
-  // const [vesselCount, setVesselCount] = useState(0);
-  // Only keep setters because we only update these diagnostics; the values are unused
-  const setWsState = useState<number | null>(null)[1];
-  // const [lastClose, setLastClose] = useState<{
-  //   code?: number;
-  //   reason?: string;
-  // } | null>(null);
-  const setLastMsg = useState<string | null>(null)[1];
+  const [connected, setConnected] = useState(false);
+  const [vesselCount, setVesselCount] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  const [loadingVesselCount, setLoadingVesselCount] = useState(false);
 
   const [hydrated, setHydrated] = useState(false);
   const [mounted, setMounted] = useState(false);
-  // Capturar el centro/zoom iniciales para usarlos solo en la creación del mapa
   const initialCenterRef = useRef(center);
   const initialZoomRef = useRef(zoom);
 
-
-
+  const fetchTotalVessels = async () => {
+    setLoadingVesselCount(true);
+    try {
+      const response = await apiFetch<{
+        total: number;
+        page: number;
+        page_size: number;
+        items: Array<{ id: string; lat: number; lon: number }>;
+      }>("/aisstream/positions?page_size=1");
+      
+      setVesselCount(response.total);
+      setLastUpdate(new Date().toLocaleTimeString());
+      console.debug(`[AIS] Total de barcos actualizado: ${response.total}`);
+    } catch (error) {
+      console.error("[AIS] Error al obtener el total de barcos:", error);
+    } finally {
+      setLoadingVesselCount(false);
+    }
+  };
 
   useEffect(() => {
-    // mark component as hydrated on client to avoid SSR/CSR mismatches
     setHydrated(true);
-    // additionally track mounted to avoid rendering heavy client-only DOM
-    // on the first render — this prevents hydration mismatches.
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    // Inicializamos el mapa y los subsistemas SOLO una vez, cuando esté hidratado
     if (!hydrated) return;
     if (!mapEl.current) return;
-    // Evitar re-inicializar si ya existe una instancia
     if (mapRef.current) return;
     let cancelled = false;
     let teardown: (() => void) | undefined;
 
     (async () => {
       const maplibregl = (await import("maplibre-gl")).default;
-      // Basic raster OSM style
       const style: StyleSpecification = {
         version: 8,
         sources: {
@@ -143,14 +162,12 @@ export default function AisLiveMap({
       const map = new maplibregl.Map({
         container: mapEl.current!,
         style,
-        // Usar SOLO los valores iniciales para la creación
         center: initialCenterRef.current,
         zoom: initialZoomRef.current,
         attributionControl: false,
       });
       mapRef.current = map;
 
-      // Setup GeoJSON source/layers once map is loaded
       const onLoad = () => {
         if (!mapRef.current?.getSource(SOURCE_ID)) {
           const sourceSpec = {
@@ -159,8 +176,6 @@ export default function AisLiveMap({
               type: "FeatureCollection",
               features: [],
             } as FeatureCollection<Point, AISProps>,
-            promoteId: "id",
-            // Activamos clustering para escalar cuando hay miles de puntos.
             cluster: true,
             clusterRadius: 60,
             clusterMaxZoom: 12,
@@ -168,7 +183,6 @@ export default function AisLiveMap({
           mapRef.current!.addSource(SOURCE_ID, sourceSpec);
         }
 
-        // Add ship icon image to map
         if (mapRef.current) {
           if (!mapRef.current.hasImage(SHIP_IMAGE_ID)) {
             const img = new window.Image(24, 24);
@@ -176,7 +190,6 @@ export default function AisLiveMap({
               try {
                 if (!mapRef.current) return;
                 mapRef.current.addImage(SHIP_IMAGE_ID, img, { pixelRatio: 2 });
-                // Cluster layer usando icono de barco + contador
                 if (!mapRef.current.getLayer(LAYER_CLUSTERS_ID)) {
                   mapRef.current.addLayer({
                     id: LAYER_CLUSTERS_ID,
@@ -185,8 +198,6 @@ export default function AisLiveMap({
                     filter: ["has", "point_count"],
                     layout: {
                       "icon-image": SHIP_IMAGE_ID,
-                      // Escala combinada por tamaño de cluster y nivel de zoom
-                      // Top-level zoom interpolate; outputs incorporate cluster size factor
                       "icon-size": [
                         "interpolate",
                         ["linear"],
@@ -259,7 +270,6 @@ export default function AisLiveMap({
                     },
                   });
                 }
-                // Add SymbolLayer after image is loaded
                 if (!mapRef.current.getLayer(LAYER_SHIP_SYMBOL_ID)) {
                   const symbolLayer: SymbolLayerSpecification = {
                     id: LAYER_SHIP_SYMBOL_ID,
@@ -268,7 +278,6 @@ export default function AisLiveMap({
                     filter: ["!", ["has", "point_count"]],
                     layout: {
                       "icon-image": SHIP_IMAGE_ID,
-                      // Hacer el barco más grande al acercar (zoom)
                       "icon-size": [
                         "interpolate",
                         ["linear"],
@@ -290,8 +299,6 @@ export default function AisLiveMap({
             };
             img.src = "/images/ship.svg";
           } else {
-            // Add SymbolLayer if image already loaded
-            // Cluster layer usando icono de barco + contador
             if (!mapRef.current.getLayer(LAYER_CLUSTERS_ID)) {
               mapRef.current.addLayer({
                 id: LAYER_CLUSTERS_ID,
@@ -300,7 +307,6 @@ export default function AisLiveMap({
                 filter: ["has", "point_count"],
                 layout: {
                   "icon-image": SHIP_IMAGE_ID,
-                  // Top-level zoom interpolate; outputs incorporate cluster size factor
                   "icon-size": [
                     "interpolate",
                     ["linear"],
@@ -402,7 +408,6 @@ export default function AisLiveMap({
         }
         sourceReadyRef.current = true;
 
-        // Restore map view if persisted (extra safety after load)
         try {
           if (mapRef.current) {
             const storeCenter = useMapStore.getState().center;
@@ -416,7 +421,6 @@ export default function AisLiveMap({
           }
         } catch {}
 
-        // Keep the stored viewport in sync when the user moves/zooms the map
         if (mapRef.current) {
           const onMoveEnd = () => {
             try {
@@ -426,7 +430,6 @@ export default function AisLiveMap({
             } catch {}
           };
           mapRef.current.on("moveend", onMoveEnd);
-          // remove listener on source teardown
           const originalTear = teardown;
           teardown = () => {
             try {
@@ -435,7 +438,77 @@ export default function AisLiveMap({
             originalTear?.();
           };
         }
-        // Carga inicial paginada por REST en el área visible
+
+        // 🔧 MODIFICADO: Evento de clic con manejo de errores
+        mapRef.current.on("click", LAYER_SHIP_SYMBOL_ID, async (e) => {
+          const features = mapRef.current!.queryRenderedFeatures(e.point, {
+            layers: [LAYER_SHIP_SYMBOL_ID],
+          });
+          
+          if (!features || features.length === 0) return;
+          
+          const feature = features[0];
+          const props = (feature.properties ?? {}) as Record<string, unknown>;
+          let mmsi = props?.mmsi ? String(props.mmsi) : "";
+          
+          if (!mmsi || mmsi.length > 9 || !/^\d+$/.test(mmsi)) {
+            return;
+          }
+          
+          // Limpiar estados previos
+          setVesselError(null);
+          setSelectedVessel(null);
+          
+          // Verificar cache
+          const cached = vesselDetailsCache.current.get(mmsi);
+          if (cached) {
+            setSelectedVessel(cached);
+            return;
+          }
+          
+          setLoadingDetails(true);
+          try {
+            const response = await apiFetch<VesselDetails>(`/details/${mmsi}`);
+            vesselDetailsCache.current.set(mmsi, response);
+            setSelectedVessel(response);
+          } catch (error: any) {
+            // Determinar el tipo de error
+            const status = error?.response?.status || error?.status;
+            
+            if (status === 404) {
+              setVesselError({
+                mmsi,
+                message: "This vessel isn't sending static data right now",
+                type: 'not_found'
+              });
+            } else if (status === 408) {
+              setVesselError({
+                mmsi,
+                message: "Timeout waiting for vessel data",
+                type: 'timeout'
+              });
+            } else {
+              setVesselError({
+                mmsi,
+                message: "Error loading vessel details",
+                type: 'error'
+              });
+            }
+            
+            console.error("[VESSEL] Error fetching details:", error);
+          } finally {
+            setLoadingDetails(false);
+          }
+        });
+
+        mapRef.current.on("mouseenter", LAYER_SHIP_SYMBOL_ID, () => {
+          mapRef.current!.getCanvas().style.cursor = "pointer";
+        });
+
+        mapRef.current.on("mouseleave", LAYER_SHIP_SYMBOL_ID, () => {
+          mapRef.current!.getCanvas().style.cursor = "";
+        });
+
         void (async () => {
           try {
             const m = mapRef.current;
@@ -446,12 +519,10 @@ export default function AisLiveMap({
             const east = b.getEast();
             const north = b.getNorth();
 
-            // Limitar la cantidad inicial para no bloquear el main thread
             const PAGE_SIZE = 1000;
-            const MAX_ITEMS = 5000; // tope inicial
+            const MAX_ITEMS = 5000;
             let page = 1;
             let received = 0;
-            // Bucle de páginas hasta llenar tope o quedarnos sin datos
             while (received < MAX_ITEMS) {
               const res = await apiFetch<{
                 total: number;
@@ -480,9 +551,7 @@ export default function AisLiveMap({
               }
               received += list.length;
               page += 1;
-              // Ceder al event loop para mantener la UI fluida
               await new Promise((r) => setTimeout(r, 0));
-              // Si el mapa cambió de bounds mientras cargábamos, detenemos la precarga
               const nb = m.getBounds();
               if (
                 nb.getWest() !== west ||
@@ -499,7 +568,6 @@ export default function AisLiveMap({
           }
         })();
 
-        // Zoom into clusters on click
         const m = mapRef.current!;
         m.on("click", LAYER_CLUSTERS_ID, (e) => {
           const features = (m.queryRenderedFeatures(e.point, {
@@ -543,10 +611,9 @@ export default function AisLiveMap({
           }
         });
       };
-  if (mapRef.current?.loaded()) onLoad();
-  else mapRef.current?.once("load", onLoad);
+      if (mapRef.current?.loaded()) onLoad();
+      else mapRef.current?.once("load", onLoad);
 
-  // Throttled flush to update source data in batches
       const startFlush = () => {
         if (flushTimerRef.current != null) return;
         flushTimerRef.current = window.setInterval(() => {
@@ -556,7 +623,6 @@ export default function AisLiveMap({
             !mapRef.current
           )
             return;
-          // Culling por viewport + muestreo estable para limitar draw calls
           const m = mapRef.current;
           const b = m.getBounds();
           const west = b.getWest();
@@ -564,7 +630,7 @@ export default function AisLiveMap({
           const east = b.getEast();
           const north = b.getNorth();
           const crossesAntimeridian = west > east;
-          const MAX_RENDERED = 8000; // tope para mantener fluidez
+          const MAX_RENDERED = 8000;
 
           const all = Array.from(featuresRef.current.values());
           const visible = all.filter((f) => {
@@ -578,7 +644,6 @@ export default function AisLiveMap({
           let features: typeof visible = visible;
           if (features.length > MAX_RENDERED) {
             const stride = Math.ceil(features.length / MAX_RENDERED);
-            // Muestreo estable por id para evitar parpadeos
             const stableHash = (s: string) => {
               let h = 2166136261 >>> 0;
               for (let i = 0; i < s.length; i++) {
@@ -603,9 +668,7 @@ export default function AisLiveMap({
         }, 400);
       };
       startFlush();
-  // Manual refresh handler
 
-      // Debounced refresh on viewport changes: fetch first page for current bounds
       let refreshTimer: number | null = null;
       const requestViewportPage = async () => {
         try {
@@ -643,106 +706,88 @@ export default function AisLiveMap({
       };
       mapRef.current?.on("moveend", scheduleViewportRefresh);
 
-
-
-      // Solo conectar a backend vía Socket.IO
-      let socket: Socket | null = null;
-      try {
-        const { io } = await import("socket.io-client");
-        const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? window.location.origin;
-        const forcePolling = process.env.NEXT_PUBLIC_FORCE_POLLING === "true";
-        // Debug: log where the client will attempt to connect. Helpful to confirm rewrites/env.
-        try {
-          console.debug("[AIS] socket baseUrl:", baseUrl, "forcePolling:", forcePolling, "env NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
-        } catch {}
-        socket = io(baseUrl, {
-          path: "/socket.io",
-          transports: forcePolling ? ["polling"] : ["polling", "websocket"],
-          upgrade: !forcePolling,
-        });
-        socket.on("connect", () => {
-          setWsState(1);
-          console.debug("[AIS] Conectado a Socket.IO backend", socket?.id);
-        });
-        socket.on("ais_raw", (data: unknown) => {
+      const startPolling = () => {
+        setConnected(true);
+        console.debug("[AIS] Iniciando polling periódico a /aisstream/positions");
+        
+        const pollPositions = async () => {
           try {
-            const now = Date.now();
-            if (now - lastMsgTsRef.current > 1000) {
-              setLastMsg(JSON.stringify(data).slice(0, 800));
-              lastMsgTsRef.current = now;
-            }
-          } catch {}
-        });
-        socket.on(
-          "ais_position",
-          (pos: {
-            id: string | number;
-            lon: number | null | undefined;
-            lat: number | null | undefined;
-            cog?: number;
-            sog?: number;
-            name?: string;
-          }) => {
-            if (typeof pos.lon !== "number" || !Number.isFinite(pos.lon)) return;
-            if (typeof pos.lat !== "number" || !Number.isFinite(pos.lat)) return;
-            upsertFeature({
-              mmsi: String(pos.id),
-              lon: pos.lon,
-              lat: pos.lat,
-              cog: pos.cog,
-              sog: pos.sog,
-              name: pos.name,
-            });
-          }
-        );
-        socket.on(
-          "ais_position_batch",
-          (payload: {
-            positions?: Array<{
-              id: string | number;
-              lon: number | null | undefined;
-              lat: number | null | undefined;
-              cog?: number;
-              sog?: number;
-              name?: string;
-            }>;
-          }) => {
-            // Solo agregar/actualizar barcos, nunca borrar
-            const list = payload?.positions ?? [];
-            for (const p of list) {
-              if (typeof p.lon !== "number" || !Number.isFinite(p.lon)) continue;
-              if (typeof p.lat !== "number" || !Number.isFinite(p.lat)) continue;
+            const m = mapRef.current;
+            if (!m) return;
+            
+            const b = m.getBounds();
+            const west = b.getWest();
+            const south = b.getSouth();
+            const east = b.getEast();
+            const north = b.getNorth();
+            
+            const res = await apiFetch<{
+              total: number;
+              page: number;
+              page_size: number;
+              items: Array<{ id: string | number; lat: number; lon: number }>;
+            }>(
+              `/aisstream/positions?page=1&page_size=2000` +
+                `&west=${west}&south=${south}&east=${east}&north=${north}`
+            );
+            
+            const list = res?.items ?? [];
+            let updatedCount = 0;
+            
+            for (const item of list) {
+              if (
+                typeof item?.lon !== "number" ||
+                !Number.isFinite(item.lon) ||
+                typeof item?.lat !== "number" ||
+                !Number.isFinite(item.lat)
+              )
+                continue;
+              
               upsertFeature({
-                mmsi: String(p.id),
-                lon: p.lon,
-                lat: p.lat,
-                cog: p.cog,
-                sog: p.sog,
-                name: p.name,
+                mmsi: String(item.id),
+                lon: item.lon,
+                lat: item.lat,
+                cog: 0,
+                sog: undefined,
+                name: undefined,
               });
+              updatedCount++;
             }
-            // Forzar flush para que el GeoJSON siempre incluya TODOS los barcos vistos
+            
             flushNeededRef.current = true;
+            
+            console.debug(`[AIS] Polling actualizado: ${updatedCount} barcos, total: ${featuresRef.current.size}`);
+          } catch (error) {
+            console.error("[AIS] Error en polling:", error);
+            setConnected(false);
           }
-        );
-        socket.on("connect_error", (err: unknown) => {
-          setWsState(0);
-          console.debug("[AIS] Socket.IO connect_error", err);
-        });
-      } catch {
-        setWsState(0);
-        console.debug("[AIS] socket.io-client not available");
-      }
+        };
+        
+        void pollPositions();
+        
+        pollingIntervalRef.current = window.setInterval(() => {
+          void pollPositions();
+        }, 30000);
+      };
+      
+      startPolling();
+      void fetchTotalVessels();
 
       function upsertFeature(v: Vessel) {
+        if (!v.mmsi || v.mmsi.length > 9 || !/^\d+$/.test(v.mmsi)) {
+          return;
+        }
+        
         if (!Number.isFinite(v.lon) || !Number.isFinite(v.lat)) return;
+        
         const id = v.mmsi;
         const nextProps: AISProps = {
+          mmsi: v.mmsi,
           name: v.name,
           sog: Number.isFinite(v.sog ?? NaN) ? v.sog : undefined,
-          // MapLibre espera un número en icon-rotate; si falta, usa 0 para evitar errores.
           cog: Number.isFinite(v.cog ?? NaN) ? (v.cog as number) : 0,
         };
+        
         const existing = featuresRef.current.get(id);
         if (existing) {
           existing.geometry.coordinates = [v.lon, v.lat];
@@ -759,16 +804,12 @@ export default function AisLiveMap({
         flushNeededRef.current = true;
       }
 
-      // Clean up
       const cleanup = () => {
-        // Close socket if present
-        try {
-          (socket as Socket | null)?.close?.();
-        } catch {}
-        // Close direct WS
-        wsRef.current?.close();
-        wsRef.current = null;
-        // Remove layers before removing source
+        if (pollingIntervalRef.current != null) {
+          window.clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        setConnected(false);
         try {
           if (mapRef.current?.getLayer(LAYER_SHIP_SYMBOL_ID))
             mapRef.current.removeLayer(LAYER_SHIP_SYMBOL_ID);
@@ -783,8 +824,7 @@ export default function AisLiveMap({
         } catch {}
         mapRef.current?.remove();
         mapRef.current = null;
-    if (refreshTimer != null) window.clearTimeout(refreshTimer);
-  // featuresRef.current.clear(); // Nunca limpiar los barcos para que nunca desaparezcan
+        if (refreshTimer != null) window.clearTimeout(refreshTimer);
       };
 
       teardown = cleanup;
@@ -795,14 +835,11 @@ export default function AisLiveMap({
       cancelled = true;
       teardown?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
 
-  // Efecto separado para ACTUALIZAR la vista sin recrear el mapa
   useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
-    // Solo cuando hay valores válidos
     if (center && Array.isArray(center) && center.length === 2) {
       const cur = m.getCenter();
       const dx = Math.abs(cur.lng - center[0]);
@@ -820,14 +857,138 @@ export default function AisLiveMap({
   }, [center, zoom]);
 
   if (!mounted) {
-    // Render a lightweight placeholder on server / initial client render.
     return <div className="w-full h-[60vh] bg-slate-50" aria-hidden />;
   }
 
   return (
     <div className="fixed inset-0 z-0">
-      <div ref={mapEl} className="w-full h-full">
+      <div ref={mapEl} className="w-full h-full" />
+      
+      {/* 🆕 Panel de error cuando el barco no envía datos estáticos */}
+      {vesselError && (
+        <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10 border-l-4 border-orange-500">
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex items-center gap-3">
+              <div className="text-orange-500 text-2xl">⚠️</div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Vessel Not Available</h3>
+                <p className="text-sm text-gray-600">MMSI: {vesselError.mmsi}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setVesselError(null)}
+              className="text-gray-500 hover:text-gray-700 text-xl"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <p className="text-gray-700">
+              {vesselError.message}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              The vessel may not be broadcasting static data at this moment. Try again later.
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {/* Panel de detalles del barco (exitoso) */}
+      {selectedVessel && (
+        <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10">
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-xl font-bold text-gray-800">
+              {selectedVessel.data.ship_name || "N/A"}
+            </h2>
+            <button 
+              onClick={() => setSelectedVessel(null)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="font-medium">MMSI:</span>
+              <span>{selectedVessel.mmsi}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">IMO:</span>
+              <span>{selectedVessel.data.imo_number || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">Call Sign:</span>
+              <span>{selectedVessel.data.call_sign || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">Ship Type:</span>
+              <span>{selectedVessel.data.ship_type || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">Destination:</span>
+              <span>{selectedVessel.data.destination || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">Draught:</span>
+              <span>{selectedVessel.data.draught ? `${selectedVessel.data.draught}m` : "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">Dimensions:</span>
+              <span>{selectedVessel.data.dimensions ? `${selectedVessel.data.dimensions.length}m x ${selectedVessel.data.dimensions.width}m` : "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">ETA:</span>
+              <span>{selectedVessel.data.eta || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">Last Update:</span>
+              <span>{new Date(selectedVessel.data.timestamp).toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Indicador de estado de conexión */}
+      <div className="absolute top-3 right-3 z-50">
+        <div
+          className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-2"
+          style={{ background: "rgba(255,255,255,0.9)" }}
+        >
+          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-rose-500'}`} />
+          <span>{connected ? "Conectado" : "Desconectado"}</span>
+          <span className="text-slate-600">·</span>
+          <span className="text-slate-600">{vesselCount.toLocaleString()} buques</span>
+          {lastUpdate && (
+            <>
+              <span className="text-slate-600">·</span>
+              <span className="text-slate-600">{lastUpdate}</span>
+            </>
+          )}
+          <button
+            onClick={fetchTotalVessels}
+            disabled={loadingVesselCount}
+            className="ml-2 px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingVesselCount ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              '↻'
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Indicador de carga */}
+      {loadingDetails && (
+        <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg z-10">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <span>Loading details...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -52,6 +52,12 @@ except Exception:
 if 'aisstream_router' in globals() and aisstream_router:
 	router.include_router(aisstream_router)
 
+# Details (example public endpoint)
+try:
+	from app.api.details_router import router as details_router  # /details
+except Exception:
+	details_router = None  # type: ignore
+
 # Incluir routers en el agregador
 router.include_router(auth_router)
 if ENABLE_GOOGLE_OAUTH and 'google_router' in globals() and google_router:
@@ -68,6 +74,10 @@ if ENABLE_ODOO_INTEGRATION and 'odoo_webhook_router' in globals() and odoo_webho
 	router.include_router(odoo_webhook_router)
 if ENABLE_ODOO_INTEGRATION and 'odoo_integration_router' in globals() and odoo_integration_router:
 	router.include_router(odoo_integration_router)
+
+# Add details router unconditionally if available
+if 'details_router' in globals() and details_router:
+	router.include_router(details_router)
 
 # Support form (SMTP)
 try:
