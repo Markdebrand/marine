@@ -440,74 +440,81 @@ export default function AisLiveMap({
         }
 
         // 🔧 MODIFICADO: Evento de clic con manejo de errores
-        mapRef.current.on("click", LAYER_SHIP_SYMBOL_ID, async (e) => {
-          const features = mapRef.current!.queryRenderedFeatures(e.point, {
-            layers: [LAYER_SHIP_SYMBOL_ID],
-          });
-          
-          if (!features || features.length === 0) return;
-          
-          const feature = features[0];
-          const props = (feature.properties ?? {}) as Record<string, unknown>;
-          let mmsi = props?.mmsi ? String(props.mmsi) : "";
-          
-          if (!mmsi || mmsi.length > 9 || !/^\d+$/.test(mmsi)) {
-            return;
-          }
-          
-          // Limpiar estados previos
-          setVesselError(null);
-          setSelectedVessel(null);
-          
-          // Verificar cache
-          const cached = vesselDetailsCache.current.get(mmsi);
-          if (cached) {
-            setSelectedVessel(cached);
-            return;
-          }
-          
-          setLoadingDetails(true);
-          try {
-            const response = await apiFetch<VesselDetails>(`/details/${mmsi}`);
-            vesselDetailsCache.current.set(mmsi, response);
-            setSelectedVessel(response);
-          } catch (error: any) {
-            // Determinar el tipo de error
-            const status = error?.response?.status || error?.status;
-            
-            if (status === 404) {
-              setVesselError({
-                mmsi,
-                message: "This vessel isn't sending static data right now",
-                type: 'not_found'
-              });
-            } else if (status === 408) {
-              setVesselError({
-                mmsi,
-                message: "Timeout waiting for vessel data",
-                type: 'timeout'
-              });
-            } else {
-              setVesselError({
-                mmsi,
-                message: "Error loading vessel details",
-                type: 'error'
-              });
-            }
-            
-            console.error("[VESSEL] Error fetching details:", error);
-          } finally {
-            setLoadingDetails(false);
-          }
-        });
+        // 🔧 MODIFICADO: Evento de clic con manejo de errores
+        if (mapRef.current) {
+            const currentMap = mapRef.current; // Almacena el valor de mapRef.current
 
-        mapRef.current.on("mouseenter", LAYER_SHIP_SYMBOL_ID, () => {
-          mapRef.current!.getCanvas().style.cursor = "pointer";
-        });
+            currentMap.on("click", LAYER_SHIP_SYMBOL_ID, async (e) => {
+                const features = currentMap.queryRenderedFeatures(e.point, {
+                    layers: [LAYER_SHIP_SYMBOL_ID],
+                });
 
-        mapRef.current.on("mouseleave", LAYER_SHIP_SYMBOL_ID, () => {
-          mapRef.current!.getCanvas().style.cursor = "";
-        });
+                if (!features || features.length === 0) return;
+
+                const feature = features[0];
+                const props = (feature.properties ?? {}) as Record<string, unknown>;
+                let mmsi = props?.mmsi ? String(props.mmsi) : "";
+
+                if (!mmsi || mmsi.length > 9 || !/^\d+$/.test(mmsi)) {
+                    return;
+                }
+
+                // Limpiar estados previos
+                setVesselError(null);
+                setSelectedVessel(null);
+
+                // Verificar cache
+                const cached = vesselDetailsCache.current.get(mmsi);
+                if (cached) {
+                    setSelectedVessel(cached);
+                    return;
+                }
+
+                setLoadingDetails(true);
+                try {
+                    const response = await apiFetch<VesselDetails>(`/details/${mmsi}`);
+                    vesselDetailsCache.current.set(mmsi, response);
+                    setSelectedVessel(response);
+                } catch (error: any) {
+                    // Manejo de errores
+                    const status = error?.response?.status || error?.status;
+
+                    if (status === 404) {
+                        setVesselError({
+                            mmsi,
+                            message: "This vessel isn't sending static data right now",
+                            type: 'not_found'
+                        });
+                    } else if (status === 408) {
+                        setVesselError({
+                            mmsi,
+                            message: "Timeout waiting for vessel data",
+                            type: 'timeout'
+                        });
+                    } else {
+                        setVesselError({
+                            mmsi,
+                            message: "Error loading vessel details",
+                            type: 'error'
+                        });
+                    }
+
+                    console.error("[VESSEL] Error fetching details:", error);
+                } finally {
+                    setLoadingDetails(false);
+                }
+            });
+
+            currentMap.on("mouseenter", LAYER_SHIP_SYMBOL_ID, () => {
+                currentMap.getCanvas().style.cursor = "pointer";
+            });
+
+            currentMap.on("mouseleave", LAYER_SHIP_SYMBOL_ID, () => {
+                currentMap.getCanvas().style.cursor = "";
+            });
+        } else {
+            console.error("mapRef.current es null al intentar añadir evento de clic");
+        }
 
         void (async () => {
           try {
