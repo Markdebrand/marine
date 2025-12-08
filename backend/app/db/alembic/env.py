@@ -27,7 +27,7 @@ from app.db import models  # noqa: F401  # ensure models are imported
 
 # Decide connection URL: prefer explicit ALEMBIC_DATABASE_URL if provided; otherwise use app's engine URL
 _alembic_url = os.getenv("ALEMBIC_DATABASE_URL")
-print("ALEMBIC_DATABASE_URL: ", _alembic_url)
+# print("ALEMBIC_DATABASE_URL: ", _alembic_url)
 if _alembic_url:
     # Escape '%' for ConfigParser interpolation rules
     config.set_main_option("sqlalchemy.url", _alembic_url.replace('%', '%%'))

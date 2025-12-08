@@ -32,7 +32,7 @@ _url = URL.create(
     port=POSTGRES_PORT,
     database=POSTGRES_DB,
 )
-print("url de cosas: ", _url)
+# print("url de cosas: ", _url)
 
 
 engine = create_engine(
