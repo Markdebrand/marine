@@ -32,12 +32,7 @@ _url = URL.create(
     port=POSTGRES_PORT,
     database=POSTGRES_DB,
 )
-print("drivername: ", drivername)
-print("username: ", username)
-print("password: ", password)
-print("host: ", host)
-print("port: ", port)
-print("database: ", database)
+print("url de cosas: ", _url)
 
 
 engine = create_engine(
