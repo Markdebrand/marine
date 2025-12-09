@@ -35,26 +35,38 @@ def add_middlewares(app):
     from app.core.middleware.auth_middleware import AuthContextMiddleware
     from app.core.middleware.require_auth_middleware import RequireAuthMiddleware
     from app.core.middleware.app_switch_middleware import AppSwitchMiddleware
-    # NOTA: El orden de adición es importante en Starlette; el último añadido es el más externo.
-    # Para que CORS envuelva TODAS las respuestas (incluyendo errores tempranos de otros middlewares
-    # y preflight OPTIONS), añadiremos CORSMiddleware al final.
-    # TrustedHost solo en entornos no-DEBUG para evitar problemas en desarrollo
     from app.config.settings import DEBUG
+    
+    # ⚠️ ORDEN CRÍTICO: Los middlewares se ejecutan en ORDEN INVERSO al que se añaden
+    # El último añadido es el primero en ejecutarse (envuelve a los demás)
+    
+    # 1. TrustedHost (solo en producción)
     if ALLOWED_HOSTS and not DEBUG:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
+    
+    # 2. Proxy headers
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+    
+    # 3. Compression
     app.add_middleware(GZipMiddleware, minimum_size=500)
-    # Correlation-ID para trazabilidad
+    
+    # 4. Request ID para trazabilidad
     app.add_middleware(RequestIdMiddleware)
-    # Interruptor remoto de disponibilidad (antes de auth para bloquear pronto)
+    
+    # 5. App switch (antes de auth para bloquear temprano)
     app.add_middleware(AppSwitchMiddleware)
-    # Auth context: decode JWT once and attach payload to request.state
+    
+    # 6. Auth context: decode JWT and attach to request.state
     app.add_middleware(AuthContextMiddleware)
-    # Require auth for protected prefixes while keeping public endpoints open
+    
+    # 7. Require auth (PERO debe permitir OPTIONS sin auth)
     app.add_middleware(RequireAuthMiddleware)
-    # Auditoría privada de requests
+    
+    # 8. Auditoría
     app.add_middleware(AuditMiddleware)
-    # Finalmente, CORS como el más externo para asegurar headers en todas las respuestas
+    
+    # 🔥 CRITICAL: CORS debe ser el ÚLTIMO middleware añadido (primero en ejecutarse)
+    # para que maneje OPTIONS preflight antes que cualquier otro middleware
     if CORS_ORIGINS:
         from fastapi.middleware.cors import CORSMiddleware
         app.add_middleware(
