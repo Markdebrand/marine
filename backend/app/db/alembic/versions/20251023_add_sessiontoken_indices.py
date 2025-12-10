@@ -8,7 +8,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '20251023_stidx'
-down_revision = '20251016_spatial'
+down_revision = '0004_add_actual_geometry_columns'
 branch_labels = None
 depends_on = None
 
