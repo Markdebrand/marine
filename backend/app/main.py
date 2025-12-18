@@ -154,7 +154,7 @@ async def lifespan(app: FastAPI):
                 # Si falla Redis, continuamos sin singleton
                 redis_client = None
         if not redis_client or lock_owner:
-            bridge = AISBridgeService(sio_server, AISSTREAM_API_KEY)
+            bridge = AISBridgeService(sio_server, AISSTREAM_API_KEY, redis_client=redis_client)
             await bridge.start()
     app.state.ais_bridge = bridge
     yield
