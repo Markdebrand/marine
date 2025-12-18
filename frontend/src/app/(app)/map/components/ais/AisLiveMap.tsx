@@ -453,10 +453,20 @@ export default function AisLiveMap({
 
                 const feature = features[0];
                 const props = (feature.properties ?? {}) as Record<string, unknown>;
-                let mmsi = props?.mmsi ? String(props.mmsi) : "";
+                
+                // 🔧 FIX: MapLibre stores properties as loose types. Strings like "001234567" might become numbers.
+                // We ensure it's a string and pad it back to 9 digits if leading zeros were stripped.
+                let rawMmsi = props?.mmsi ? String(props.mmsi) : "";
+                let mmsi = rawMmsi.padStart(9, '0');
 
-                if (!mmsi || mmsi.length > 9 || !/^\d+$/.test(mmsi)) {
+                // Validar que el MMSI sea exactamente 9 dígitos numéricos
+                if (!mmsi || mmsi.length !== 9 || !/^\d{9}$/.test(mmsi)) {
+                    console.warn(`[AIS] Click ignored: Invalid MMSI. Raw="${rawMmsi}", Padded="${mmsi}"`, props);
                     return;
+                }
+                
+                if (rawMmsi !== mmsi) {
+                    console.debug(`[AIS] Fixed MMSI: "${rawMmsi}" -> "${mmsi}"`);
                 }
 
                 // Limpiar estados previos
