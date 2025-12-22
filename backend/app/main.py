@@ -126,10 +126,8 @@ async def lifespan(app: FastAPI):
     bridge: AISBridgeService | None = None
     lock_owner = False
     redis_client = None
-    try:
-        redis_url = getattr(__import__("app.config.settings"), "REDIS_URL", None)
-    except Exception:
-        redis_url = None
+    redis_client = None
+    redis_url = REDIS_URL
     if AISSTREAM_ENABLED and AISSTREAM_API_KEY:
         # Si hay Redis configurado, intentamos tomar un lock para que SOLO un worker cree la conexión
         if redis_url:
@@ -150,8 +148,9 @@ async def lifespan(app: FastAPI):
                 now = int(time.time())
                 if redis_client.set(lock_key, now, nx=True, ex=AISSTREAM_SINGLETON_LOCK_TTL):
                     lock_owner = True
-            except Exception:
+            except Exception as e:
                 # Si falla Redis, continuamos sin singleton
+                print("Error initializing Redis client for AIS singleton: %s", e)
                 redis_client = None
         if not redis_client or lock_owner:
             bridge = AISBridgeService(sio_server, AISSTREAM_API_KEY, redis_client=redis_client)
