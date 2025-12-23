@@ -440,7 +440,6 @@ export default function AisLiveMap({
         }
 
         // 🔧 MODIFICADO: Evento de clic con manejo de errores
-        // 🔧 MODIFICADO: Evento de clic con manejo de errores
         if (mapRef.current) {
             const currentMap = mapRef.current; // Almacena el valor de mapRef.current
 

@@ -16,6 +16,8 @@ class MarineVessel(Base):
     name = Column(String(255), nullable=True)
     type = Column(String(64), nullable=True)
     flag = Column(String(64), nullable=True)
+    length = Column(Integer, nullable=True)
+    width = Column(Integer, nullable=True)
     ext_refs = Column(postgresql.JSONB, nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

@@ -6,12 +6,17 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Tuple, Optional, Iterable
 from collections import defaultdict
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select
+from app.db.database import SessionLocal
+from app.db.models.marine_vessel import MarineVessel
 
 class AISBridgeService:
-    def __init__(self, sio_server, api_key, bounding_boxes=None):
+    def __init__(self, sio_server, api_key, bounding_boxes=None, redis_client=None):
         self.sio_server = sio_server
         self.api_key = api_key
         self.bounding_boxes = bounding_boxes or [[[-90, -180], [90, 180]]]
+        self.redis_client = redis_client
         self._task = None
         self._running = False
         
@@ -23,10 +28,14 @@ class AISBridgeService:
         self._ship_static_data: Dict[str, dict] = {}
         self._static_data_listeners: Dict[str, asyncio.Future] = {}
         self._message_queue: asyncio.Queue = asyncio.Queue()
+        self._syncer_task = None
+        self._syncer_running = False
 
     async def start(self):
         self._running = True
+        self._syncer_running = True
         self._task = asyncio.create_task(self._run())
+        self._syncer_task = asyncio.create_task(self._static_data_syncer_loop())
 
     async def stop(self):
         self._running = False
@@ -34,6 +43,14 @@ class AISBridgeService:
             self._task.cancel()
             try:
                 await self._task
+            except Exception:
+                pass
+        
+        self._syncer_running = False
+        if self._syncer_task:
+            self._syncer_task.cancel()
+            try:
+                await self._syncer_task
             except Exception:
                 pass
 
@@ -131,6 +148,10 @@ class AISBridgeService:
                                         if not future.done():
                                             future.set_result(processed_data)
                                         del self._static_data_listeners[ship_id]
+                                    
+                                    # Caching en Redis y agendar a DB
+                                    if self.redis_client:
+                                        self._buffer_static_data(ship_id, processed_data)
                                     
                                     # print(f"✓ Datos estáticos recibidos para MMSI: {ship_id}")
                                     
@@ -301,3 +322,141 @@ class AISBridgeService:
             "page_size": page_size,
             "items": page_items,
         }
+
+    def _buffer_static_data(self, ship_id: str, data: dict):
+        """Guarda datos estáticos en Redis e indica que está pendiente de sync."""
+        try:
+            # Hash único para datos estáticos
+            self.redis_client.hset("ais:static_data", ship_id, json.dumps(data))
+            # Set de IDs pendientes de sync
+            self.redis_client.sadd("ais:pending_static_updates", ship_id)
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Error buffering static data in Redis: {e}")
+
+    async def _static_data_syncer_loop(self):
+        """Sincroniza periódicamente los datos estáticos de Redis a Postgres."""
+        if not self.redis_client:
+            logging.info("Redis client not available, skipping static data DB sync loop.")
+            return
+
+        batch_size = 50
+        while self._syncer_running:
+            try:
+                # Obtener un lote de MMSIs pendientes
+                # spop(count) retorna una lista de elementos removidos
+                pending_mmsis = self.redis_client.spop("ais:pending_static_updates", batch_size)
+                
+                if pending_mmsis:
+                    # Convertir a lista de strings (redis retorna bytes si no decode_responses)
+                    # Pero en cache_adapter parece que decode_responses=False...
+                    # Si pending_mmsis viene en bytes, decodificar.
+                    mmsi_list = []
+                    for m in pending_mmsis:
+                        if isinstance(m, bytes):
+                            mmsi_list.append(m.decode('utf-8'))
+                        elif isinstance(m, str):
+                            mmsi_list.append(m)
+                    
+                    if mmsi_list:
+                        # Recuperar datos del hash
+                        # hmget retorna lista en orden de claves
+                        raw_data_list = self.redis_client.hmget("ais:static_data", mmsi_list)
+                        
+                        vessels_to_upsert = []
+                        for mmsi, raw_json in zip(mmsi_list, raw_data_list):
+                            if raw_json:
+                                try:
+                                    data_dict = json.loads(raw_json)
+                                    vessels_to_upsert.append({
+                                        "mmsi": mmsi,
+                                        "data": data_dict
+                                    })
+                                except Exception:
+                                    pass
+                        
+                        if vessels_to_upsert:
+                             # Ejecutar upsert en hilo aparte para no bloquear loop
+                            await asyncio.to_thread(self._upsert_vessels_to_db, vessels_to_upsert)
+                            
+                # Pausa antes del siguiente lote
+                await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logging.getLogger(__name__).error(f"Error in static data syncer loop: {e}")
+                await asyncio.sleep(5)
+
+    def _upsert_vessels_to_db(self, vessel_batch: List[dict]):
+        """Upsert batch of vessels to Postgres synchronously."""
+        if not vessel_batch:
+            return
+            
+        session = SessionLocal()
+        try:
+            # Preparar datos para insert
+            # MarineVessel: mmsi, imo, name, type, ext_refs
+            rows = []
+            for item in vessel_batch:
+                mmsi = item["mmsi"]
+                d = item["data"]
+                
+                # Mapeo
+                ship_name = d.get("ship_name") or "Unknown"
+                imo = d.get("imo_number")
+                if imo == "N/A": 
+                    imo = None
+                
+                # Convertir IMO a string
+                imo_str = str(imo) if imo else None
+                
+                ship_type_str = d.get("ship_type")
+                
+                # New columns
+                dims = d.get("dimensions") or {}
+                # length / width from dict or calc
+                length = dims.get("length")
+                width = dims.get("width")
+                
+                # Campos extra a JSONB
+                ext_refs = {
+                    "call_sign": d.get("call_sign"),
+                    "dimensions": dims,
+                    "fix_type": d.get("fix_type"),
+                    "eta": d.get("eta"),
+                    "draught": d.get("draught"),
+                    "destination": d.get("destination"),
+                    "timestamp": d.get("timestamp")
+                }
+                
+                rows.append({
+                    "mmsi": mmsi,
+                    "imo": imo_str,
+                    "name": ship_name,
+                    "type": ship_type_str,
+                    "length": length,
+                    "width": width,
+                    "ext_refs": ext_refs
+                })
+
+            stmt = insert(MarineVessel).values(rows)
+            # ON CONFLICT DO UPDATE
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[MarineVessel.mmsi],
+                set_={
+                    "imo": stmt.excluded.imo,
+                    "name": stmt.excluded.name,
+                    "type": stmt.excluded.type,
+                    "length": stmt.excluded.length,
+                    "width": stmt.excluded.width,
+                    "ext_refs": stmt.excluded.ext_refs,
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            )
+            session.execute(stmt)
+            session.commit()
+            logging.info(f"Synced {len(rows)} vessels to DB.")
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Error upserting vessels to DB: {e}")
+            session.rollback()
+        finally:
+            session.close()
