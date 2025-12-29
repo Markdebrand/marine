@@ -195,6 +195,13 @@ class AISBridgeService:
                 del self._static_data_listeners[mmsi]
             raise e
 
+    # NUEVO: Obtener última posición conocida
+    def get_ship_position(self, mmsi: str) -> Optional[Tuple[float, float]]:
+        """Devuelve la última posición (lat, lon) conocida en memoria, o None."""
+        if mmsi in self._last_pos:
+            return self._last_pos[mmsi]
+        return None
+
     # NUEVO: Procesar datos estáticos
     def _process_static_data(self, ais_message):
         """Procesa datos estáticos del barco"""

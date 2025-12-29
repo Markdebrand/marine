@@ -20,6 +20,8 @@ class VesselData(BaseModel):
     draught: Optional[str] = "N/A"
     destination: str = "N/A"
     timestamp: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class VesselDetailsWrapper(BaseModel):
     mmsi: str

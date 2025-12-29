@@ -132,6 +132,42 @@ export default function AisLiveMap({
     setMounted(true);
   }, []);
 
+  // 🆕 EFECTO: Reaccionar a cambios en el store (center/zoom) y mover el mapa suavemente
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    // Obtenemos el estado actual del mapa para evitar movimientos innecesarios
+    const currentCenter = mapRef.current.getCenter();
+    const currentZoom = mapRef.current.getZoom();
+    
+    const storeCenter = useMapStore.getState().center;
+    const storeZoom = useMapStore.getState().zoom;
+    
+    // Si no hay centro en el store, no hacemos nada
+    if (!storeCenter) return;
+    
+    const [ln, lt] = storeCenter;
+    const z = storeZoom ?? currentZoom;
+    
+    // Comprobamos si la diferencia es significativa para evitar loops
+    const dist = Math.sqrt(
+      Math.pow(ln - currentCenter.lng, 2) + Math.pow(lt - currentCenter.lat, 2)
+    );
+    
+    // Si la distancia es pequeña y el zoom es similar, ignoramos
+    if (dist < 0.0001 && Math.abs(z - currentZoom) < 0.1) return;
+    
+    // Usamos flyTo para una transición suave
+    mapRef.current.flyTo({
+      center: [ln, lt],
+      zoom: z,
+      speed: 1.2, // Velocidad de vuelo (1.2 es default)
+      curve: 1.42, // Curvatura del vuelo
+      essential: true // Esta animación es esencial (no se omite si el usuario ha deshabilitado animaciones)
+    });
+    
+  }, [persistedCenter, persistedZoom]); // Dependemos de las props suscritas
+
   useEffect(() => {
     if (!hydrated) return;
     if (!mapEl.current) return;
@@ -853,6 +889,9 @@ export default function AisLiveMap({
     };
   }, [hydrated]);
 
+  // 🗑️ REMOVIDO: Este efecto anterior usaba jumpTo y conflictuaba con la nueva lógica de flyTo
+  // La nueva lógica en el useEffect anterior (líneas ~135) ya maneja las actualizaciones del centro y zoom
+  /*
   useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
@@ -871,6 +910,7 @@ export default function AisLiveMap({
       }
     }
   }, [center, zoom]);
+  */
 
   if (!mounted) {
     return <div className="w-full h-[60vh] bg-slate-50" aria-hidden />;
