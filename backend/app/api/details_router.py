@@ -72,8 +72,16 @@ async def get_ship_details(
                 eta=str(realtime_data.get('eta', 'N/A')),
                 draught=str(realtime_data.get('draught', 'N/A')) if realtime_data.get('draught') is not None else 'N/A',
                 destination=str(realtime_data.get('destination', 'N/A')),
-                timestamp=str(realtime_data.get('timestamp', ''))
+                timestamp=str(realtime_data.get('timestamp', '')),
+                latitude=None,
+                longitude=None
             )
+
+            # Intentar obtener posición (lat, lon)
+            pos = service.get_ship_position(mmsi)
+            if pos:
+                vessel_data.latitude = pos[0]
+                vessel_data.longitude = pos[1]
             
             return VesselDetailsWrapper(
                 mmsi=mmsi,
@@ -111,8 +119,17 @@ async def get_ship_details(
             eta=ext_refs.get('eta', 'N/A'),
             draught=str(ext_refs.get('draught', 'N/A')) if ext_refs.get('draught') is not None else 'N/A',
             destination=ext_refs.get('destination', 'N/A'),
-            timestamp=str(ts)
+            timestamp=str(ts),
+            latitude=None,
+            longitude=None
         )
+        
+        # Intentar enriquecer con posición en tiempo real si el servicio está activo
+        if service:
+            pos = service.get_ship_position(mmsi)
+            if pos:
+                vessel_data.latitude = pos[0]
+                vessel_data.longitude = pos[1]
         print(f"=== DETALLES PARA MMSI: {mmsi} DESDE LA BASE DE DATOS ===")
         print(vessel_data)
         return VesselDetailsWrapper(

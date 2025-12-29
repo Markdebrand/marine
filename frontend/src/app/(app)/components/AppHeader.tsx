@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/hooks/useAuth";
+import VesselSearch from "@/app/(app)/components/VesselSearch";
 
 export default function AppHeader() {
   const pathname = usePathname();
@@ -76,6 +77,11 @@ export default function AppHeader() {
               {link("/map", "Live Map")}
               {link("/watchlist", "Watchlist")}
             </nav>
+            
+            <div className="mx-2">
+               <VesselSearch />
+            </div>
+
             {/* Profile menu */}
             <div className="ml-1">
               <button
