@@ -150,11 +150,17 @@ async def lifespan(app: FastAPI):
                     lock_owner = True
             except Exception as e:
                 # Si falla Redis, continuamos sin singleton
-                print("Error initializing Redis client for AIS singleton: %s", e)
+                logging.getLogger(__name__).warning("Error initializing Redis client for AIS singleton: %s", e)
                 redis_client = None
-        if not redis_client or lock_owner:
-            bridge = AISBridgeService(sio_server, AISSTREAM_API_KEY, redis_client=redis_client)
+        
+        # Siempre instanciamos el servicio (puede funcionar en modo pasivo leyendo de Redis)
+        bridge = AISBridgeService(sio_server, AISSTREAM_API_KEY, redis_client=redis_client)
+        
+        # Solo iniciamos la conexión (Websocket writer) si somos dueños del lock o si no hay Redis
+        if (redis_client and lock_owner) or (not redis_client):
             await bridge.start()
+        else:
+            logging.info("AISBridgeService running in PASSIVE mode (reading positions from Redis)")
     app.state.ais_bridge = bridge
     yield
     # Apagado ordenado

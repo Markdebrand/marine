@@ -19,6 +19,8 @@ class AISBridgeService:
         self.redis_client = redis_client
         self._task = None
         self._running = False
+        self.redis_positions_key = "ais:positions"
+
         
         # Para datos de posición (existente)
         self._ships: Dict[str, List[List[float]]] = {}
@@ -124,6 +126,18 @@ class AISBridgeService:
                                     if len(self._ships[ship_id]) > 100:
                                         self._ships[ship_id] = self._ships[ship_id][-100:]
                                     self._last_pos[ship_id] = (lat, lon)
+                                    
+                                    # Sync to Redis if client is available
+                                    if self.redis_client:
+                                        try:
+                                            # Store as "lat,lon" string for efficiency
+                                            self.redis_client.hset(
+                                                self.redis_positions_key, 
+                                                ship_id, 
+                                                f"{lat},{lon}"
+                                            )
+                                        except Exception as rx:
+                                            logging.getLogger(__name__).warning(f"Redis write error: {rx}")
                                     
                                     if emitir:
                                         await self.sio_server.emit("ais_position", {
@@ -283,21 +297,56 @@ class AISBridgeService:
         self, bbox: Optional[Tuple[float, float, float, float]] = None
     ) -> Iterable[Tuple[str, float, float]]:
         """Iterate last known positions optionally filtered by bbox (west,south,east,north)."""
-        # CREAR UNA COPIA SEGURA para iterar
-        items_copy = list(self._last_pos.items())
         
+        items_copy = []
+        
+        # If we are the writer (active), use local memory
+        if self._running:
+            items_copy = list(self._last_pos.items())
+        # If we are a reader (passive) and have Redis, fetch from Redis
+        elif self.redis_client:
+            try:
+                # Calculate approximate number of items to decide on approach?
+                # For now just fetch all. HGETALL is O(N)
+                all_pos = self.redis_client.hgetall(self.redis_positions_key)
+                for sid_bytes, pos_bytes in all_pos.items():
+                    try:
+                        sid = sid_bytes.decode('utf-8') if isinstance(sid_bytes, bytes) else str(sid_bytes)
+                        val = pos_bytes.decode('utf-8') if isinstance(pos_bytes, bytes) else str(pos_bytes)
+                        # val expected is "lat,lon"
+                        lat_s, lon_s = val.split(',')
+                        items_copy.append((sid, float(lat_s), float(lon_s)))
+                    except (ValueError, IndexError):
+                        continue
+            except Exception as e:
+                logging.getLogger(__name__).error(f"Error fetching filtered positions from Redis: {e}")
+                return
+        else:
+            # No data source available
+            return
+
         if bbox is None:
             for ship_id, (lat, lon) in items_copy:
                 yield ship_id, lat, lon
             return
             
         west, south, east, north = bbox
+        
+        # Handle dateline crossing if necessary (simplistic approach for now)
+        # Standard filter
         use_lon_filter = east >= west
+        
         for ship_id, (lat, lon) in items_copy:
             if lat < south or lat > north:
                 continue
-            if use_lon_filter and (lon < west or lon > east):
-                continue
+            if use_lon_filter:
+                if (lon < west or lon > east):
+                    continue
+            else:
+                 # Crossing dateline: keep if lon >= west OR lon <= east
+                 if not (lon >= west or lon <= east):
+                     continue
+                     
             yield ship_id, lat, lon
 
     def get_positions(self):
