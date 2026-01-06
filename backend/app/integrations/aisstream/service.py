@@ -315,7 +315,7 @@ class AISBridgeService:
                         val = pos_bytes.decode('utf-8') if isinstance(pos_bytes, bytes) else str(pos_bytes)
                         # val expected is "lat,lon"
                         lat_s, lon_s = val.split(',')
-                        items_copy.append((sid, float(lat_s), float(lon_s)))
+                        items_copy.append((sid, (float(lat_s), float(lon_s))))
                     except (ValueError, IndexError):
                         continue
             except Exception as e:
