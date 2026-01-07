@@ -31,3 +31,24 @@ def get_positions(
         bbox = (west or 0.0, south or 0.0, east or 0.0, north or 0.0)
     result = service.get_positions_page(page=page, page_size=page_size, bbox=bbox)
     return JSONResponse(content=result)
+
+@router.get("/aisstream/positions/{mmsi}", response_class=JSONResponse)
+def get_single_position(
+    mmsi: str,
+    service: AISBridgeService = Depends(get_ais_bridge_service),
+):
+    """
+    Obtiene la última posición conocida de un barco específico.
+    """
+    if not service:
+        return JSONResponse(content={"error": "AISBridgeService not running"}, status_code=503)
+
+    pos = service.get_ship_position(mmsi)
+    if not pos:
+         return JSONResponse(content={"error": "Position not found"}, status_code=404)
+         
+    return JSONResponse(content={
+        "mmsi": mmsi,
+        "lat": pos[0],
+        "lon": pos[1]
+    })
