@@ -165,6 +165,17 @@ async def customer_confirmed(request: Request, body: OdooCustomerPayload, db: Se
                 db.add(plan)
                 db.commit()
                 db.refresh(plan)
+            
+            # Update user plan reference
+            try:
+                user.plan_id = plan.id  # type: ignore
+                # Default billing period if not provided logic could go here, for now leave as is or default 'monthly'
+                # If body had billing info we would set it. Assuming 'monthly' for default.
+                user.billing_period = 'monthly' # type: ignore
+                db.add(user)
+            except Exception:
+                pass
+
             # Cerrar suscripciones activas previas si aplica
             from app.db.models.enums import SubscriptionStatus
             active = (
@@ -175,13 +186,22 @@ async def customer_confirmed(request: Request, body: OdooCustomerPayload, db: Se
             for s in active:
                 s.status = SubscriptionStatus.canceled.value  # type: ignore[assignment]
                 db.add(s)
-            db.commit()
+            
             # Crear nueva suscripción activa
-            db.add(models.Subscription(user_id=user.id, plan_id=plan.id, status="active"))
+            new_sub = models.Subscription(
+                user_id=user.id,
+                plan_id=plan.id,
+                status=SubscriptionStatus.active.value,
+                # Dates default to now() via server_default, but we could set current_period_end here if we knew logic.
+                # Letting defaults handle start/end for now (usually +30d handled by DB or explicit logic).
+                # For this port, we rely on DB defaults or subsequent updates.
+            )
+            db.add(new_sub)
             db.commit()
-    except Exception:
+    except Exception as e:
         db.rollback()
-        # No bloquee si falla plan; continúe
+        # Log error but don't block response
+        print(f"Error processing plan for user {user.id}: {e}")
         pass
 
     return {

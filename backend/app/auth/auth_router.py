@@ -255,7 +255,17 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
     except Exception:
         effective_role = 'user'
         is_super = False
-    token = create_access_token(str(persona.id), sid=refresh_h, role=effective_role, is_superadmin=is_super)
+    # Fetch subscription status for the token
+    from app.db.queries.plan_queries import get_active_subscription
+    sub_status = None
+    try:
+        active_sub = get_active_subscription(db, cast(int, persona.id))
+        if active_sub:
+            sub_status = active_sub.status
+    except Exception:
+        pass
+
+    token = create_access_token(str(persona.id), sid=refresh_h, role=effective_role, is_superadmin=is_super, subscription_status=sub_status)
 
     # Política anterior (revoque otros) eliminada porque ahora bloqueamos cuando hay activa
     try:
@@ -532,7 +542,17 @@ def refresh_token(body: RefreshRequest, request: Request, response: Response, db
     except Exception:
         effective_role = 'user'
         is_super = False
-    token = create_access_token(str(st.user_id), sid=refresh_h, role=effective_role, is_superadmin=is_super)
+    try:
+        from app.db.queries.plan_queries import get_active_subscription
+        sub_status = None
+        if user:
+            active_sub = get_active_subscription(db, cast(int, user.id))
+            if active_sub:
+                sub_status = active_sub.status
+    except Exception:
+        sub_status = None
+
+    token = create_access_token(str(st.user_id), sid=refresh_h, role=effective_role, is_superadmin=is_super, subscription_status=sub_status)
     try:
         # Revoca el usado para refrescar sin hacer commit (permitir atomicidad al crear el nuevo)
         revoke_session_token(db, st, commit=False)
