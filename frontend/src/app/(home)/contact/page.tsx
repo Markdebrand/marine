@@ -72,7 +72,7 @@ export default function ContactPage() {
     setErrors((prev) => ({ ...prev, [field]: fErrs[field] }));
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess(null);
     const errs = validate(values);
@@ -80,22 +80,48 @@ export default function ContactPage() {
     if (Object.keys(errs).length > 0) return;
     setSubmitting(true);
 
-    // Simulate async send (replace with actual API call)
-    setTimeout(() => {
+    try {
+      // Call backend API
+      const response = await fetch('http://localhost:8000/contact/simple-submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: values.name,
+          email: values.email,
+          phone: values.phone || null,
+          company: values.company || null,
+          subject: values.subject,
+          message: values.message,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(errorData.detail || 'Failed to send message');
+      }
+
+      const data = await response.json();
+
       setSubmitting(false);
       setSubmitted(true);
       setSuccess('Tu mensaje ha sido enviado correctamente. Nos pondremos en contacto pronto.');
       // reset form
       setValues({ name: '', phone: '', email: '', company: '', subject: '', message: '' });
       setErrors({});
-    }, 900);
+    } catch (error) {
+      setSubmitting(false);
+      setSuccess(null);
+      setErrors({ message: error instanceof Error ? error.message : 'Error al enviar el mensaje. Por favor, intenta de nuevo.' });
+    }
   };
 
   return (
     <section className="container mx-auto px-6 sm:px-8 lg:px-12 py-12">
       <div className="grid gap-8 lg:gap-10 md:grid-cols-2">
-  {/* Form */}
-  <div className="glass-card red-glow p-6 sm:p-8">
+        {/* Form */}
+        <div className="glass-card red-glow p-6 sm:p-8">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">Contact Us</h1>
           <p className="mt-2 text-slate-600 text-sm">Fields marked with <span className="text-red-600">*</span> are required.</p>
 
@@ -240,7 +266,7 @@ export default function ContactPage() {
           </form>
         </div>
 
-  {/* Contact information */}
+        {/* Contact information */}
         <div className="glass-card p-6 sm:p-8">
           <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 text-center">HSO Marine</h2>
           <ul className="mt-6 space-y-5 text-slate-700">
@@ -278,7 +304,7 @@ export default function ContactPage() {
             </li>
             <li className="flex items-start gap-3">
               <Mail className="mt-0.5 h-5 w-5 text-red-600" />
-              <div className="text-sm text-slate-700">support@hsomarine.com</div>
+              <div className="text-sm text-slate-700">info@hsomarine.com</div>
             </li>
           </ul>
         </div>

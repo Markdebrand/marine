@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: "/about", label: "About Us" },
   { href: "/services", label: "Services" },
   { href: "/contact", label: "Contact Us" },
+  { href: "/support", label: "Support" },
 ] as const;
 
 function IconMenu({ className = "w-7 h-7" }: { className?: string }) {
@@ -135,7 +136,7 @@ function Navbar() {
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
-  if (ro && observed) ro.unobserve(observed);
+      if (ro && observed) ro.unobserve(observed);
       window.removeEventListener("resize", scheduleUpdate);
       clearTimeout(t);
     };
@@ -191,14 +192,13 @@ function Navbar() {
                 onMouseEnter={() => {
                   try {
                     router.prefetch(link.href);
-                  } catch {}
+                  } catch { }
                 }}
-                className={`transition-colors hover:text-red-600 leading-none py-1 ${
-                  pathname === link.href ||
-                  (link.href !== "/" && pathname.startsWith(link.href))
+                className={`transition-colors hover:text-red-600 leading-none py-1 ${pathname === link.href ||
+                    (link.href !== "/" && pathname.startsWith(link.href))
                     ? "text-red-600"
                     : "text-slate-800"
-                }`}
+                  }`}
               >
                 {link.label}
               </Link>
@@ -207,10 +207,10 @@ function Navbar() {
         </div>
 
         {/* Right controls (pushed to the far right) */}
-          <div className="hidden lg:flex items-center gap-4 text-[16px] ml-auto">
+        <div className="hidden lg:flex items-center gap-4 text-[16px] ml-auto">
           <a
-              href="tel:+16625639786"
-              className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-slate-800"
+            href="tel:+16625639786"
+            className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-slate-800"
           >
             <Phone className="h-4 w-4" />
             <span className="whitespace-nowrap">+1 (662) 563-9786</span>
@@ -243,7 +243,7 @@ function Navbar() {
           {/* Mobile header controls (logo moved to left link to avoid duplication) */}
 
           <div className="ml-auto flex items-center gap-2">
-              <a href="tel:+16625639786" className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-800">
+            <a href="tel:+16625639786" className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-800">
               <Phone className="h-4 w-4" />
             </a>
 
@@ -269,7 +269,7 @@ function Navbar() {
       {isMenuOpen && (
         <div className="lg:hidden mt-2">
           <div className="mx-auto w-11/12 max-w-7xl glass-card px-4 py-3 flex flex-col gap-4">
-            
+
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -278,21 +278,20 @@ function Navbar() {
                 onMouseEnter={() => {
                   try {
                     router.prefetch(link.href);
-                  } catch {}
+                  } catch { }
                 }}
-                className={`transition-colors hover:text-red-600 ${
-                  pathname === link.href ||
-                  (link.href !== "/" && pathname.startsWith(link.href))
+                className={`transition-colors hover:text-red-600 ${pathname === link.href ||
+                    (link.href !== "/" && pathname.startsWith(link.href))
                     ? "text-red-600"
                     : "text-slate-800"
-                }`}
+                  }`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 {link.label}
               </Link>
             ))}
             <div className="pt-2 flex items-center gap-3">
-              
+
               <Link
                 href={ctaHref}
                 className="inline-flex items-center rounded-xl bg-red-600 px-6 py-3 text-white text-base font-medium hover:bg-red-700 w-full justify-center shadow"
