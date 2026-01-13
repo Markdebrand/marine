@@ -75,7 +75,8 @@ export default function SupportPage() {
         setSubmitting(true);
 
         try {
-            const response = await fetch('http://localhost:8000/contact/support-submit', {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const response = await fetch(`${baseUrl}/contact/support-submit`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

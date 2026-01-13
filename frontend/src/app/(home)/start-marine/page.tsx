@@ -66,7 +66,8 @@ export default function StartMarinePage() {
         setSubmitting(true);
 
         try {
-            const response = await fetch('http://localhost:8000/registration/start-marine', {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const response = await fetch(`${baseUrl}/registration/start-marine`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

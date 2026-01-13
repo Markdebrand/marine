@@ -82,7 +82,8 @@ export default function ContactPage() {
 
     try {
       // Call backend API
-      const response = await fetch('http://localhost:8000/contact/simple-submit', {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${baseUrl}/contact/simple-submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
