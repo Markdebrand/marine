@@ -209,11 +209,24 @@ class AISBridgeService:
                 del self._static_data_listeners[mmsi]
             raise e
 
-    # NUEVO: Obtener última posición conocida
     def get_ship_position(self, mmsi: str) -> Optional[Tuple[float, float]]:
-        """Devuelve la última posición (lat, lon) conocida en memoria, o None."""
+        """Devuelve la última posición (lat, lon) conocida en memoria, o Redis si hay fallback."""
+        # 1. Intentar memoria local
         if mmsi in self._last_pos:
             return self._last_pos[mmsi]
+            
+        # 2. Intentar Redis si está disponible
+        if self.redis_client:
+            try:
+                # El formato en Redis es "lat,lon" string
+                pos_str = self.redis_client.hget(self.redis_positions_key, mmsi)
+                if pos_str:
+                    val = pos_str.decode('utf-8') if isinstance(pos_str, bytes) else str(pos_str)
+                    lat_s, lon_s = val.split(',')
+                    return (float(lat_s), float(lon_s))
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Error fetching position from Redis for {mmsi}: {e}")
+                
         return None
 
     # NUEVO: Procesar datos estáticos
