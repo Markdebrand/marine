@@ -14,7 +14,7 @@ from app.config.settings import (
     REFRESH_TOKEN_EXPIRE_MINUTES,
 )
 
-def create_access_token(subject: str, sid: Optional[str] = None, expires_minutes: Optional[int] = None, role: Optional[str] = None, is_superadmin: Optional[bool] = None) -> str:
+def create_access_token(subject: str, sid: Optional[str] = None, expires_minutes: Optional[int] = None, role: Optional[str] = None, is_superadmin: Optional[bool] = None, subscription_status: Optional[str] = None) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes or ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode: dict = {
         "sub": subject,
@@ -29,6 +29,8 @@ def create_access_token(subject: str, sid: Optional[str] = None, expires_minutes
         to_encode["role"] = role
     if is_superadmin is not None:
         to_encode["is_superadmin"] = bool(is_superadmin)
+    if subscription_status:
+        to_encode["subscription_status"] = subscription_status
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 

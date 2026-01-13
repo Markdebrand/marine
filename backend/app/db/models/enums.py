@@ -12,6 +12,7 @@ class SubscriptionStatus(str, Enum):
     active = "active"
     canceled = "canceled"
     past_due = "past_due"
+    expired = "expired"
 
 
 class SupportLevel(str, Enum):

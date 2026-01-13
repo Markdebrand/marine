@@ -24,6 +24,9 @@ class User(Base):
     last_name = Column(String(100))
     phone = Column(String(50))
     company = Column(String(255))
+    plan_id = Column(Integer, ForeignKey("plans.id"), nullable=True)
+    plan = relationship("Plan", lazy="joined")
+    billing_period = Column(String(20), nullable=True)
     website = Column(String(255))
     bio = Column(String(1024))
     # Rate limit for profile edits
