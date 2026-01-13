@@ -193,12 +193,10 @@ export default function StartMarinePage() {
                         {/* Image */}
                         <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-white/10 hover:scale-105 transition-transform duration-500">
                             <Image
-                                src="/tanker-ship.jpg"
-                                alt="HSO Marine Oil Tanker"
-                                width={960}
-                                height={540}
-                                className="w-full h-auto object-cover"
-                                priority
+                                src="/images/contact2webp.webp"
+                                alt="Resumen"
+                                fill
+                                className="object-cover"
                             />
                         </div>
                     </div>
