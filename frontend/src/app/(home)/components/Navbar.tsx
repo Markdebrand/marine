@@ -59,8 +59,8 @@ function Navbar() {
   const router = useRouter();
   const linksContainerRef = useRef<HTMLDivElement | null>(null);
   const [indicator, setIndicator] = useState({ left: 0, width: 0, opacity: 0 });
-  // CTA dependiendo del estado de auth
-  const ctaHref = useMemo(() => (status === "authenticated" ? "/map" : "/login"), [status]);
+  // CTA always goes to Start Marine registration
+  const ctaHref = "/start-marine";
 
   // Prefetch common routes to speed up header navigation
   // Avoid prefetching everything on mount (can load extra JS). Let Link prefetch
@@ -195,9 +195,9 @@ function Navbar() {
                   } catch { }
                 }}
                 className={`transition-colors hover:text-red-600 leading-none py-1 ${pathname === link.href ||
-                    (link.href !== "/" && pathname.startsWith(link.href))
-                    ? "text-red-600"
-                    : "text-slate-800"
+                  (link.href !== "/" && pathname.startsWith(link.href))
+                  ? "text-red-600"
+                  : "text-slate-800"
                   }`}
               >
                 {link.label}
@@ -281,9 +281,9 @@ function Navbar() {
                   } catch { }
                 }}
                 className={`transition-colors hover:text-red-600 ${pathname === link.href ||
-                    (link.href !== "/" && pathname.startsWith(link.href))
-                    ? "text-red-600"
-                    : "text-slate-800"
+                  (link.href !== "/" && pathname.startsWith(link.href))
+                  ? "text-red-600"
+                  : "text-slate-800"
                   }`}
                 onClick={() => setIsMenuOpen(false)}
               >

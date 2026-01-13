@@ -42,6 +42,10 @@ try:
 except Exception:
 	support_contact_router = None  # type: ignore
 try:
+	from app.api.registration_router import router as registration_router
+except Exception:
+	registration_router = None  # type: ignore
+try:
 	from app.api.contact_form_router import router as contact_form_router  # /contact-us
 except Exception:
 	contact_form_router = None  # type: ignore
@@ -80,6 +84,8 @@ if ENABLE_CONTACT_FORMS and 'simple_contact_router' in globals() and simple_cont
 	router.include_router(simple_contact_router)
 if ENABLE_SUPPORT_FORM and 'support_contact_router' in globals() and support_contact_router:
 	router.include_router(support_contact_router)
+if 'registration_router' in globals() and registration_router:
+	router.include_router(registration_router)
 if ENABLE_CONTACT_FORMS and 'contact_form_router' in globals() and contact_form_router:
 	router.include_router(contact_form_router)
 router.include_router(activation_router)
