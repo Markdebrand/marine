@@ -8,6 +8,8 @@ export type AuthUser = {
   email: string;
   role?: string | null;
   is_superadmin?: boolean | null;
+  first_name?: string | null;
+  last_name?: string | null;
 };
 
 type AuthState = {

@@ -50,7 +50,25 @@ def _get_connector(profile: str = "default") -> OdooConnector:
                         username=ODOO_STAGING_USER,
                         password=ODOO_STAGING_PASSWORD,
                     )
+                elif profile == "erp":
+                    from app.config.settings import (
+                        ODOO_ERP_URL,
+                        ODOO_ERP_DB,
+                        ODOO_ERP_USER,
+                        ODOO_ERP_PASSWORD
+                    )
+                    if not all([ODOO_ERP_URL, ODOO_ERP_DB, ODOO_ERP_USER, ODOO_ERP_PASSWORD]):
+                        raise RuntimeError("Faltan variables Odoo ERP: defina ODOO_ERP_URL, ODOO_ERP_DB, ODOO_ERP_USER y ODOO_ERP_PASSWORD en .env")
+                    print(f"DEBUG: Odoo ERP URL loaded: '{ODOO_ERP_URL}'") # DEBUG
+                    _connectors[profile] = OdooConnector(
+                        url=ODOO_ERP_URL,
+                        db=ODOO_ERP_DB,
+                        username=ODOO_ERP_USER,
+                        password=ODOO_ERP_PASSWORD,
+                    )
                 else:
+                    if not all([ODOO_URL, ODOO_DB, ODOO_USER, ODOO_PASSWORD]):
+                        raise RuntimeError(f"Faltan variables Odoo DEFAULT para perfil '{profile}': defina ODOO_URL, ODOO_DB, ODOO_USER y ODOO_PASSWORD en .env")
                     _connectors[profile] = OdooConnector(
                         url=ODOO_URL,
                         db=ODOO_DB,
@@ -214,3 +232,82 @@ def list_pipeline_opportunities(
     )
     normalized = [normalize_odoo_lead(r) for r in rows]
     return [Lead(**r) for r in normalized]
+
+
+# ============================================================================
+# ACCOUNTING / INVOICES
+# ============================================================================
+
+INVOICE_DEFAULT_FIELDS: List[str] = [
+    "id", "name", "partner_id", "invoice_date", "invoice_date_due",
+    "amount_total", "amount_residual", "amount_untaxed", "amount_tax",
+    "currency_id", "state", "payment_state", "access_token", "move_type",
+]
+
+
+def list_customer_invoices_by_email(
+    *,
+    email: str,
+    limit: int = 100,
+    offset: int = 0,
+    order: Optional[str] = 'invoice_date desc, id desc',
+    fields: Optional[List[str]] = None,
+    profile: str = 'erp',
+    include_paid: bool = True,
+) -> List[dict]:
+    """Lista facturas de cliente filtradas por email del partner.
+    
+    Realiza una búsqueda insensible a mayúsculas/minúsculas buscando primero
+    los IDs del partner.
+    """
+    model_invoice = 'account.move'
+    model_partner = 'res.partner'
+    fields = fields or INVOICE_DEFAULT_FIELDS
+    connector = _get_connector(profile)
+    ctx = _build_ctx(connector)
+
+    # 1. Buscar partners que coincidan con el email (ilike)
+    # Buscamos ID y parent_id por si acaso, aunque solo usaremos el ID para filtrar facturas
+    partner_domain: Domain = [('email', 'ilike', email)]
+    partners = connector.search_read(model_partner, partner_domain, fields=['id'], context=ctx)
+    
+    if not partners:
+        return []
+        
+    partner_ids = [p['id'] for p in partners]
+
+    # 2. Buscar facturas asociadas a esos partners
+    domain: Domain = [
+        ('move_type', '=', 'out_invoice'),
+        ('partner_id', 'in', partner_ids),
+    ]
+    
+    if not include_paid:
+        domain.append(('payment_state', 'in', ['not_paid', 'partial', 'in_payment']))
+    
+    rows = connector.search_read(
+        model_invoice,
+        domain,
+        fields=fields,
+        order=order,
+        limit=limit,
+        offset=offset,
+        context=ctx,
+    )
+    
+    return rows
+
+
+def get_invoice_portal_url(
+    invoice_id: int,
+    access_token: Optional[str] = None,
+    odoo_base_url: str = 'https://erp.hsotrade.com',
+) -> str:
+    """Genera URL del portal de Odoo para una factura."""
+    base_url = odoo_base_url.rstrip('/')
+    url = f'{base_url}/my/invoices/{invoice_id}'
+    
+    if access_token:
+        url += f'?access_token={access_token}'
+    
+    return url
