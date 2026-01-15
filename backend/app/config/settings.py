@@ -106,6 +106,12 @@ ODOO_STAGING_DB: str | None = os.getenv("ODOO_STAGING_DB")
 ODOO_STAGING_USER: str | None = os.getenv("ODOO_STAGING_USER")
 ODOO_STAGING_PASSWORD: str | None = os.getenv("ODOO_STAGING_PASSWORD")
 
+# Odoo ERP (para facturas en erp.hsotrade.com)
+ODOO_ERP_URL: str | None = os.getenv("ODOO_ERP_URL")
+ODOO_ERP_DB: str | None = os.getenv("ODOO_ERP_DB")
+ODOO_ERP_USER: str | None = os.getenv("ODOO_ERP_USER")
+ODOO_ERP_PASSWORD: str | None = os.getenv("ODOO_ERP_PASSWORD")
+
 # --- Cache / Redis (opcional) ---
 # Redis para cache compartida entre workers (si se configura)
 REDIS_URL: str | None = os.getenv("REDIS_URL")

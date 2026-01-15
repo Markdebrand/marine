@@ -122,3 +122,12 @@ except Exception:
 	preferences_router = None  # type: ignore
 if 'preferences_router' in globals() and preferences_router:
 	router.include_router(preferences_router)
+
+
+# Invoices
+try:
+	from app.api.invoices_router import router as invoices_router
+except Exception:
+	invoices_router = None  # type: ignore
+if 'invoices_router' in globals() and invoices_router:
+	router.include_router(invoices_router)

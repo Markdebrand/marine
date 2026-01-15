@@ -50,6 +50,21 @@ class _TimeoutTransport(xmlrpc.client.Transport):
         return conn
 
 
+class _TimeoutSafeTransport(xmlrpc.client.SafeTransport):
+    """Transporte HTTPS con timeout."""
+    def __init__(self, timeout: int = ODOO_TIMEOUT, context=None):
+        super().__init__(context=context)
+        self.timeout = timeout
+
+    def make_connection(self, host):  # type: ignore[override]
+        conn = super().make_connection(host)
+        try:
+            conn.timeout = self.timeout
+        except Exception:
+            pass
+        return conn
+
+
 _thread_local = threading.local()
 
 @lru_cache(maxsize=1)
@@ -74,6 +89,7 @@ def _get_proxies_threadlocal(url: str):
     """Devuelve proxies xmlrpc (common, models) por hilo, con timeout y allow_none.
 
     Evita compartir ServerProxy entre hilos para reducir race conditions.
+    Detecta si es HTTPS para usar SafeTransport.
     """
     base = _get_base_url(url)
     if not hasattr(_thread_local, "proxies"):
@@ -81,7 +97,13 @@ def _get_proxies_threadlocal(url: str):
     proxies = _thread_local.proxies  # type: ignore[attr-defined]
     if base in proxies:
         return proxies[base]
-    transport = _TimeoutTransport(timeout=ODOO_TIMEOUT)
+    
+    # Elegir transporte según esquema
+    if base.startswith("https://"):
+        transport = _TimeoutSafeTransport(timeout=ODOO_TIMEOUT)
+    else:
+        transport = _TimeoutTransport(timeout=ODOO_TIMEOUT)
+
     common = xmlrpc.client.ServerProxy(f"{base}/xmlrpc/2/common", allow_none=True, transport=transport)
     models = xmlrpc.client.ServerProxy(f"{base}/xmlrpc/2/object", allow_none=True, transport=transport)
     proxies[base] = (common, models)
