@@ -1,8 +1,12 @@
 "use client";
 import AppHeader from "@/app/(app)/components/AppHeader";
 import PersistentMapHost from "@/app/(app)/components/PersistentMapHost";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  // Verificar estado de suscripción y redirigir a /profile si no está activa
+  useSubscriptionGuard();
+
   return (
     <div className="min-h-screen bg-white">
       <AppHeader />

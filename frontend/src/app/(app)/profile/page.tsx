@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { authService } from "@/services/authService";
-import { ArrowLeft, Settings, Linkedin, Twitter } from "lucide-react";
+import { ArrowLeft, Settings, Linkedin, Twitter, AlertCircle, X } from "lucide-react";
 import SessionHistory from "@/components/userprofile/SessionHistory";
 import InvoiceHistory from "@/components/userprofile/InvoiceHistory";
 import Link from "next/link";
@@ -11,6 +11,7 @@ import Link from "next/link";
 export default function ProfilePage() {
     const { user } = useAuthStore();
     const [activeTab, setActiveTab] = useState<'profile' | 'sessions' | 'invoices'>('profile');
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
     // Heartbeat to keep session last_seen_at updated (parity with Web-app)
     useEffect(() => {
@@ -56,6 +57,15 @@ export default function ProfilePage() {
             try {
                 const data = await authService.me();
                 setProfileData(data);
+                
+                // Show modal if subscription is not active and user is not admin
+                const isAdmin = data?.is_superadmin || data?.role === 'admin';
+                const hasInactiveSubscription = data?.subscription_status !== 'active';
+                
+                // Always show modal if subscription is inactive
+                if (hasInactiveSubscription && !isAdmin) {
+                    setShowSubscriptionModal(true);
+                }
             } catch (e) {
                 console.error("Failed to fetch profile", e);
             }
@@ -63,9 +73,61 @@ export default function ProfilePage() {
         fetchProfile();
     }, []);
 
+    const handleCloseModal = () => {
+        setShowSubscriptionModal(false);
+    };
+
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-gray-900 transition-colors duration-200">
+            {/* Subscription Modal */}
+            {showSubscriptionModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* Overlay */}
+                    <div 
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        onClick={handleCloseModal}
+                    ></div>
+                    
+                    {/* Modal Content */}
+                    <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+                        {/* Close button */}
+                        <button
+                            onClick={handleCloseModal}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                            aria-label="Close"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+
+                        {/* Icon */}
+                        <div className="flex justify-center mb-4">
+                            <div className="rounded-full bg-amber-100 dark:bg-amber-900/30 p-3">
+                                <AlertCircle className="h-8 w-8 text-amber-600 dark:text-amber-500" />
+                            </div>
+                        </div>
+
+                        {/* Title */}
+                        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
+                            Subscription Required
+                        </h2>
+
+                        {/* Message */}
+                        <p className="text-center text-gray-600 dark:text-gray-300 mb-6">
+                            To continue using this application, please renew your subscription.
+                        </p>
+
+                        {/* Action Button */}
+                        <button
+                            onClick={handleCloseModal}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                        >
+                            I Understand
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <main className="flex-1 overflow-auto p-4 md:p-6">
                 <div className="w-full mx-auto space-y-8 max-w-5xl">
                     {/* Profile Card */}
@@ -200,3 +262,4 @@ export default function ProfilePage() {
         </div>
     );
 }
+
