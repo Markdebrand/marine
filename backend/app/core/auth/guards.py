@@ -19,6 +19,13 @@ def require_admin(user: m.User = Depends(get_current_user)) -> m.User:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Requires admin role")
 
 
+def require_superadmin(user: m.User = Depends(get_current_user)) -> m.User:
+    """Only allow users with is_superadmin=True."""
+    if not getattr(user, "is_superadmin", False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo superadmin")
+    return user
+
+
 # (Eliminado) require_due_create: no se utiliza en HSO Marine.
 
 

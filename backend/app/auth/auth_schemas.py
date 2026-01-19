@@ -1,9 +1,19 @@
 from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import Literal
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     password_confirmation: str = Field(min_length=6)
+    role: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    phone: str | None = None
+    company: str | None = None
+    website: str | None = None
+    bio: str | None = None
+    plan_id: int | None = None
+    billing_period: Literal["Monthly", "Quarterly", "Semiannual", "Annual"] | None = None
 
     @model_validator(mode="after")
     def passwords_match(self):  # type: ignore
