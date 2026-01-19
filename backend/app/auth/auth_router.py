@@ -41,7 +41,7 @@ from app.core.auth.session_manager import invalidate_session_cache
 import time
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
-from app.core.auth.guards import require_admin
+from app.core.auth.guards import require_admin, require_superadmin
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("app.auth")
@@ -113,10 +113,21 @@ def _clear_auth_cookies(response: Response):
 
 
 @router.post("/register", response_model=RegisterResponse)
-def register(body: RegisterRequest, db: Session = Depends(get_db)):
+def register(
+    body: RegisterRequest, 
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_superadmin)
+):
     from app.core.services.onboarding_service import UserOnboardingService
     try:
-        persona = UserOnboardingService.create_user_with_started_plan(db, body.email, body.password)
+        # Extraer campos adicionales del body
+        extra_fields = body.model_dump(exclude={"email", "password", "password_confirmation"})
+        persona = UserOnboardingService.create_user_with_started_plan(
+            db, 
+            body.email, 
+            body.password,
+            **extra_fields
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return RegisterResponse(id=persona.id, email=persona.email)  # type: ignore
