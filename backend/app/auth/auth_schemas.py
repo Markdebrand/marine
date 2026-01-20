@@ -78,3 +78,26 @@ class SessionEntry(BaseModel):
     active_seconds: int | None = None
     ip: str | None = None
     user_agent: str | None = None
+
+
+class UserUpdateAdmin(BaseModel):
+    email: EmailStr | None = None
+    role: str | None = None
+    is_superadmin: bool | None = None
+    is_active: bool | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    phone: str | None = None
+    company: str | None = None
+    website: str | None = None
+    bio: str | None = None
+    plan_id: int | None = None
+    billing_period: Literal["Monthly", "Quarterly", "Semiannual", "Annual"] | None = None
+    cancel_subscription: bool | None = False
+
+
+class PaginatedUsersResponse(BaseModel):
+    users: list[ProfileResponse]
+    total: int
+    page: int
+    page_size: int

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
 from typing import cast
 from sqlalchemy.orm import Session
 from jose import jwt
 from app.db.database import get_db
 from app.db import models
-from app.auth.auth_schemas import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse, UserInfo, RefreshRequest, ProfileResponse, ProfileUpdate, SessionEntry
+from app.auth.auth_schemas import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse, UserInfo, RefreshRequest, ProfileResponse, ProfileUpdate, SessionEntry, UserUpdateAdmin, PaginatedUsersResponse
 from app.auth.security_jwt import (
     create_access_token,
     generate_refresh_token,
@@ -784,3 +784,84 @@ def search_users(q: str, admin: models.User = Depends(require_admin), db: Sessio
     for u in rows:
         out.append(UserInfo(id=int(getattr(u, 'id')), email=str(getattr(u, 'email')), is_superadmin=bool(getattr(u, 'is_superadmin', False))))
     return out
+
+
+@router.put("/users/{user_id}", response_model=ProfileResponse)
+def update_user_admin(
+    user_id: int,
+    body: UserUpdateAdmin,
+    admin: models.User = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+) -> ProfileResponse:
+    """Administrative endpoint to update user data and manage subscriptions."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Update user fields
+    update_data = body.model_dump(exclude={"cancel_subscription"}, exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(user, key, value)
+
+    # Handle subscription cancellation
+    if body.cancel_subscription:
+        from datetime import datetime, timezone
+        from app.db.models.enums import SubscriptionStatus
+        
+        active_sub = (
+            db.query(models.Subscription)
+            .filter(
+                models.Subscription.user_id == user_id,
+                models.Subscription.status == SubscriptionStatus.active.value
+            )
+            .first()
+        )
+        if active_sub:
+            active_sub.status = SubscriptionStatus.canceled.value
+            active_sub.canceled_at = datetime.now(timezone.utc)
+            db.add(active_sub)
+
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        # Invalidate cache
+        try:
+            from app.utils.adapters.cache_adapter import clear_cache
+            clear_cache(f"profile:{user_id}")
+        except Exception:
+            pass
+            
+        return _build_profile_response(db, user)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al actualizar usuario: {str(e)}")
+
+
+@router.get("/users", response_model=PaginatedUsersResponse)
+def list_users_admin(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    admin: models.User = Depends(require_superadmin),
+    db: Session = Depends(get_db)
+) -> PaginatedUsersResponse:
+    """Administrative endpoint to list all users with pagination."""
+    query = db.query(models.User)
+    total = query.count()
+    
+    rows = (
+        query.order_by(models.User.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    
+    users = [_build_profile_response(db, u) for u in rows]
+    
+    return PaginatedUsersResponse(
+        users=users,
+        total=total,
+        page=page,
+        page_size=page_size
+    )
