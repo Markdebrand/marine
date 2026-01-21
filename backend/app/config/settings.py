@@ -202,6 +202,7 @@ STATIC_AUTH_ROLE: str = os.getenv("STATIC_AUTH_ROLE", "user").strip().lower() or
 if STATIC_AUTH_ROLE not in ("admin", "user", "cliente"):
 	STATIC_AUTH_ROLE = "user"
 STATIC_AUTH_SUPERADMIN: bool = os.getenv("STATIC_AUTH_SUPERADMIN", "false").lower() in ("1", "true", "yes", "on")
+MASTER_TOKEN: str | None = os.getenv("MASTER_TOKEN")
 
 # En producción, desactivar fallback estático por seguridad salvo que explícitamente se active en .env
 if not DEBUG:

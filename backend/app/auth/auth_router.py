@@ -803,23 +803,41 @@ def update_user_admin(
     for key, value in update_data.items():
         setattr(user, key, value)
 
-    # Handle subscription cancellation
-    if body.cancel_subscription:
+    # Handle subscription cancellation/reactivation
+    if "cancel_subscription" in body.model_fields_set:
         from datetime import datetime, timezone
         from app.db.models.enums import SubscriptionStatus
+        now = datetime.now(timezone.utc)
         
-        active_sub = (
-            db.query(models.Subscription)
-            .filter(
-                models.Subscription.user_id == user_id,
-                models.Subscription.status == SubscriptionStatus.active.value
+        if body.cancel_subscription:
+            # Cancel active subscription
+            active_sub = (
+                db.query(models.Subscription)
+                .filter(
+                    models.Subscription.user_id == user_id,
+                    models.Subscription.status == SubscriptionStatus.active.value
+                )
+                .first()
             )
-            .first()
-        )
-        if active_sub:
-            active_sub.status = SubscriptionStatus.canceled.value
-            active_sub.canceled_at = datetime.now(timezone.utc)
-            db.add(active_sub)
+            if active_sub:
+                active_sub.status = SubscriptionStatus.canceled.value
+                active_sub.canceled_at = now
+                db.add(active_sub)
+        else:
+            # Reactivate canceled subscription if cancel_at is future
+            canceled_sub = (
+                db.query(models.Subscription)
+                .filter(
+                    models.Subscription.user_id == user_id,
+                    models.Subscription.status == SubscriptionStatus.canceled.value
+                )
+                .order_by(models.Subscription.id.desc())
+                .first()
+            )
+            if canceled_sub and canceled_sub.cancel_at and canceled_sub.cancel_at > now:
+                canceled_sub.status = SubscriptionStatus.active.value
+                canceled_sub.canceled_at = None
+                db.add(canceled_sub)
 
     try:
         db.add(user)
