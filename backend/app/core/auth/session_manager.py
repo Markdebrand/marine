@@ -61,13 +61,29 @@ def decode_token(token: str) -> dict:
 
 
 def get_token_payload(request: Request, creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> dict:
-    """Return validated JWT payload, preferring the one cached by middleware."""
+    """Return validated JWT payload or MASTER_TOKEN virtual payload."""
+    # 1) Check state (already processed)
     payload = getattr(request.state, "token_payload", None)
     if isinstance(payload, dict) and payload.get("sub") is not None:
         return payload
+
+    # 2) Extract token
     token = extract_token_from_request(request, creds)
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Falta token")
+
+    # 3) MASTER_TOKEN bypass
+    from app.config.settings import MASTER_TOKEN
+    if MASTER_TOKEN and token == MASTER_TOKEN:
+        payload = {"sub": "master", "role": "admin", "is_superadmin": True}
+        try:
+            request.state.token_payload = payload
+            request.state.sub = "master"
+        except Exception:
+            pass
+        return payload
+
+    # 4) Normal JWT decode
     payload = decode_token(token)
     try:
         request.state.token_payload = payload  # type: ignore[attr-defined]
@@ -91,6 +107,16 @@ def get_current_user(request: Request, payload: dict = Depends(get_token_payload
             password_hash="",
             role=STATIC_AUTH_ROLE,
             is_superadmin=STATIC_AUTH_SUPERADMIN,
+            is_active=True,
+        )
+    if str(sub) == "master":
+        # Virtual Superadmin Master Token
+        return m.User(  # type: ignore[arg-type]
+            id=-1,
+            email="master@hsomarine.internal",
+            password_hash="",
+            role="admin",
+            is_superadmin=True,
             is_active=True,
         )
     try:
@@ -204,15 +230,9 @@ def invalidate_session_cache(sid: str) -> None:
         pass
 
 
-def get_current_sub(request: Request, creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> str:
+def get_current_sub(payload: dict = Depends(get_token_payload)) -> str:
     """Return only the JWT subject without touching the database."""
-    payload = getattr(request.state, "token_payload", None)
-    if not isinstance(payload, dict):
-        token = extract_token_from_request(request, creds)
-        if not token:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Falta token")
-        payload = decode_token(token)
-    sub = payload.get("sub") if isinstance(payload, dict) else None
+    sub = payload.get("sub")
     if not sub:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token sin sub")
     return str(sub)
