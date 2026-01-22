@@ -44,10 +44,16 @@ export const authService = {
       email: p.email,
       role: p.role,
       is_superadmin: p.is_superadmin,
-      subscription_status: p.subscription_status,
-      plan_code: p.plan_code,
       first_name: p.first_name,
       last_name: p.last_name,
+      phone: p.phone,
+      company: p.company,
+      website: p.website,
+      bio: p.bio,
+      subscription_status: p.subscription_status,
+      subscription_id: p.subscription_id,
+      plan_code: p.plan_code,
+      plan_name: p.plan_name,
     };
   },
   async logout() {

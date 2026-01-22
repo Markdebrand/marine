@@ -10,8 +10,14 @@ export type AuthUser = {
   is_superadmin?: boolean | null;
   first_name?: string | null;
   last_name?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  website?: string | null;
+  bio?: string | null;
   subscription_status?: string | null;
+  subscription_id?: number | null;
   plan_code?: string | null;
+  plan_name?: string | null;
 };
 
 type AuthState = {
