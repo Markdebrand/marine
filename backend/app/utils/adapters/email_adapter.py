@@ -14,9 +14,13 @@ Exposes:
 """
 
 import smtplib
+import socket
 from email.message import EmailMessage
 from typing import Iterable, List, Optional
 import asyncio
+import logging
+
+_log = logging.getLogger("email_adapter")
 
 from app.config import settings as cfg
 
@@ -40,6 +44,17 @@ def _normalize_recipients(to: Optional[Iterable[str]]) -> List[str]:
     if not recipients:
         raise EmailConfigError("No recipients provided and EMAIL_TO is empty")
     return recipients
+
+
+def _resolve_to_ipv4(host: str) -> str:
+    """Force resolution to IPv4 if possible to avoid IPv6 connection issues."""
+    try:
+        addr_info = socket.getaddrinfo(host, None, socket.AF_INET)
+        if addr_info:
+            return addr_info[0][4][0]
+    except Exception as e:
+        _log.warning(f"Failed to resolve {host} to IPv4: {e}")
+    return host
 
 
 def send_email(subject: str, body_text: str, to: Optional[Iterable[str]] = None, reply_to: Optional[str] = None, from_email: Optional[str] = None, cc: Optional[Iterable[str]] = None) -> dict:
@@ -76,17 +91,26 @@ def send_email(subject: str, body_text: str, to: Optional[Iterable[str]] = None,
         msg.set_content(body_text)
 
     log = {"recipients": recipients, "cc": cc_list, "result": None, "error": None}
+    
+    # Resolve host to IPv4 to avoid common IPv6 issues in local environments
+    smtp_host = _resolve_to_ipv4(cfg.SMTP_HOST)
+    smtp_port = cfg.SMTP_PORT
+    timeout = 60 # Increased timeout for slow servers (Outlook)
+
     try:
         if cfg.SMTP_SSL:
-            with smtplib.SMTP_SSL(cfg.SMTP_HOST, cfg.SMTP_PORT) as server: # type: ignore
+            _log.debug(f"Connecting to SMTP SSL {smtp_host}:{smtp_port}")
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=timeout) as server: # type: ignore
                 if cfg.SMTP_USER and cfg.SMTP_PASSWORD:
                     server.login(cfg.SMTP_USER, cfg.SMTP_PASSWORD)
                 res = server.send_message(msg, to_addrs=recipients + cc_list)
                 log["result"] = str(res)
-                print(f"[EMAIL] Sent via SSL to: {recipients}. Result: {res}")
+                _log.info(f"Email sent via SSL to: {recipients}. Result: {res}")
                 return log
+        
         # STARTTLS or plain
-        with smtplib.SMTP(cfg.SMTP_HOST, cfg.SMTP_PORT) as server: # type: ignore
+        _log.debug(f"Connecting to SMTP {smtp_host}:{smtp_port} (TLS={cfg.SMTP_TLS})")
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as server: # type: ignore
             server.ehlo()
             if cfg.SMTP_TLS:
                 server.starttls()
@@ -95,10 +119,13 @@ def send_email(subject: str, body_text: str, to: Optional[Iterable[str]] = None,
                 server.login(cfg.SMTP_USER, cfg.SMTP_PASSWORD)
             res = server.send_message(msg, to_addrs=recipients + cc_list)
             log["result"] = str(res)
-            print(f"[EMAIL] Sent via TLS/plain to: {recipients}. Result: {res}")
+            _log.info(f"Email sent via TLS/plain to: {recipients}. Result: {res}")
             return log
     except Exception as e:
-        log["error"] = f"{e}\n{traceback.format_exc()}"
+        error_msg = f"{e}\n{traceback.format_exc()}"
+        log["error"] = error_msg
+        _log.error(f"Failed to send email to {recipients}: {e}")
+        # Preserve original behavior of printing to stderr and re-raising
         print(f"[EMAIL][ERROR] Failed to send to {recipients}: {e}", file=sys.stderr)
         print(traceback.format_exc(), file=sys.stderr)
         raise
