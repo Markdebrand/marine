@@ -39,7 +39,16 @@ export const authService = {
   },
   async me(): Promise<AuthUser> {
     const p = await apiFetch<ProfileResponse>(`/auth/me`);
-    return { id: p.id, email: p.email, role: p.role, is_superadmin: p.is_superadmin };
+    return {
+      id: p.id,
+      email: p.email,
+      role: p.role,
+      is_superadmin: p.is_superadmin,
+      subscription_status: p.subscription_status,
+      plan_code: p.plan_code,
+      first_name: p.first_name,
+      last_name: p.last_name,
+    };
   },
   async logout() {
     const state = useAuthStore.getState();
