@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from app.db.database import get_db
@@ -81,81 +81,70 @@ def _compose_support_html(data: SupportForm) -> str:
 
 
 @router.post("/support-submit")
-async def submit_support(form: SupportForm, db: Session = Depends(get_db)):
+async def submit_support(form: SupportForm, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
-    Support form endpoint - sends to support@hsomarine.com
+    Support form endpoint - sends to support@hsomarine.com via background tasks
     """
-    try:
-        from app.config import settings as cfg
-        
-        # Check if support forms are enabled
-        if not cfg.ENABLE_SUPPORT_FORM:
-            raise HTTPException(status_code=503, detail="Support form is currently disabled")
-        
-        # Prepare email content
-        subject = f"HSO Marine Support: {form.subject}"
-        body_text = _compose_support_body(form)
-        body_html = _compose_support_html(form)
-        
-        # Get support recipients (defaults to support@hsomarine.com)
-        import os
-        support_email = os.getenv("SUPPORT_EMAIL_TO", "support@hsomarine.com")
-        recipients = [support_email] if isinstance(support_email, str) else support_email
-        
-        # Send email to support team
-        result = await async_send_email(
-            subject,
-            {"text": body_text, "html": body_html},
-            to=recipients,
-            reply_to=form.email,
-            from_email=cfg.SMTP_USER
-        )
-        
-        # Send confirmation email to user
-        user_mail = {"to": str(form.email), "sent": False, "error": None}
-        try:
-            user_subject = "HSO Marine — Support Request Received"
-            user_body_text = (
-                f"Hi {form.name},\n\n"
-                "Thank you for contacting HSO Marine Support. We have received your request and will respond as soon as possible.\n\n"
-                f"Your request:\n{form.message}\n\n"
-                "Best regards,\n"
-                "HSO Marine Support Team"
-            )
-            user_body_html = f"""
-            <html>
-            <body style='font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;'>
-                <div style='max-width: 600px; margin: auto; background: #fff; border-radius: 8px; padding: 32px;'>
-                    <h2 style='color: #1a2233; margin-top: 0;'>Support Request Received</h2>
-                    <p>Hi {form.name},</p>
-                    <p>Thank you for contacting HSO Marine Support. We have received your request and will respond as soon as possible.</p>
-                    <div style='margin: 20px 0; padding: 16px; background: #f8f9fa; border-radius: 4px;'>
-                        <p style='margin: 0 0 8px 0; font-weight: bold;'>Your request:</p>
-                        <p style='margin: 0; white-space: pre-wrap;'>{form.message}</p>
-                    </div>
-                    <p>Best regards,<br><strong>HSO Marine Support Team</strong></p>
-                </div>
-            </body>
-            </html>
-            """
-            await async_send_email(
-                user_subject,
-                {"text": user_body_text, "html": user_body_html},
-                to=[str(form.email)]
-            )
-            user_mail["sent"] = True
-        except Exception as ue:
-            user_mail["error"] = str(ue)
-        
-        return {
-            "ok": True,
-            "message": "Your support request has been sent successfully",
-            "recipients": recipients,
-            "smtp_result": result,
-            "userEmail": user_mail
-        }
-        
-    except EmailConfigError as e:
-        raise HTTPException(status_code=500, detail=f"Email configuration error: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send email: {e}")
+    from app.config import settings as cfg
+    
+    # Check if support forms are enabled
+    if not cfg.ENABLE_SUPPORT_FORM:
+        raise HTTPException(status_code=503, detail="Support form is currently disabled")
+    
+    # Prepare email content
+    subject = f"HSO Marine Support: {form.subject}"
+    body_text = _compose_support_body(form)
+    body_html = _compose_support_html(form)
+    
+    # Get support recipients (defaults to support@hsomarine.com)
+    import os
+    support_email = os.getenv("SUPPORT_EMAIL_TO", "support@hsomarine.com")
+    recipients = [support_email] if isinstance(support_email, str) else support_email
+    
+    # 1. Send email to support team in background
+    background_tasks.add_task(
+        async_send_email,
+        subject,
+        {"text": body_text, "html": body_html},
+        to=recipients,
+        reply_to=form.email,
+        from_email=cfg.SMTP_USER
+    )
+    
+    # 2. Send confirmation email to user in background
+    user_subject = "HSO Marine — Support Request Received"
+    user_body_text = (
+        f"Hi {form.name},\n\n"
+        "Thank you for contacting HSO Marine Support. We have received your request and will respond as soon as possible.\n\n"
+        f"Your request:\n{form.message}\n\n"
+        "Best regards,\n"
+        "HSO Marine Support Team"
+    )
+    user_body_html = f"""
+    <html>
+    <body style='font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;'>
+        <div style='max-width: 600px; margin: auto; background: #fff; border-radius: 8px; padding: 32px;'>
+            <h2 style='color: #1a2233; margin-top: 0;'>Support Request Received</h2>
+            <p>Hi {form.name},</p>
+            <p>Thank you for contacting HSO Marine Support. We have received your request and will respond as soon as possible.</p>
+            <div style='margin: 20px 0; padding: 16px; background: #f8f9fa; border-radius: 4px;'>
+                <p style='margin: 0 0 8px 0; font-weight: bold;'>Your request:</p>
+                <p style='margin: 0; white-space: pre-wrap;'>{form.message}</p>
+            </div>
+            <p>Best regards,<br><strong>HSO Marine Support Team</strong></p>
+        </div>
+    </body>
+    </html>
+    """
+    background_tasks.add_task(
+        async_send_email,
+        user_subject,
+        {"text": user_body_text, "html": user_body_html},
+        to=[str(form.email)]
+    )
+    
+    return {
+        "ok": True,
+        "message": "Your support request has been received. Our team will contact you shortly."
+    }
+

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, BackgroundTasks
 from pydantic import BaseModel, EmailStr
 from app.utils.adapters.email_adapter import async_send_email, EmailConfigError
 
@@ -11,7 +11,7 @@ class SupportForm(BaseModel):
     message: str
 
 @router.post("/support", status_code=status.HTTP_200_OK)
-async def support(form: SupportForm, request: Request):
+async def support(form: SupportForm, request: Request, background_tasks: BackgroundTasks):
     subject = f"[Support] {form.subject}"
     # Plain text fallback
     body_text = (
@@ -37,11 +37,17 @@ async def support(form: SupportForm, request: Request):
     </body>
     </html>
     """
-    try:
-        cc = ["luis.mariojarabavillalobos@gmail.com"]
-        await async_send_email(subject, {"text": body_text, "html": body_html}, None, None, None, cc) # type: ignore
-        return {"detail": "Support request sent successfully"}
-    except EmailConfigError as e:
-        raise HTTPException(status_code=500, detail=f"SMTP config error: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send support email: {str(e)}")
+    
+    cc = ["luis.mariojarabavillalobos@gmail.com"]
+    background_tasks.add_task(
+        async_send_email,
+        subject,
+        {"text": body_text, "html": body_html},
+        None,
+        None,
+        None,
+        cc
+    )
+    
+    return {"detail": "Support request received. Your email will be sent shortly."}
+
