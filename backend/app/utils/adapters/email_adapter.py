@@ -49,14 +49,21 @@ def send_email(subject: str, body_text: str, to: Optional[Iterable[str]] = None,
     """
     import sys
     import traceback
+    import time
+    from datetime import datetime
+    
+    start_time = time.time()
+    print(f"\n[EMAIL][{datetime.now().isoformat()}] Starting email send process")
+    
     _ensure_base_config()
     recipients = _normalize_recipients(to)
     cc_list = [x.strip() for x in cc] if cc else []
+    
+    print(f"[EMAIL] Recipients: {recipients}, CC: {cc_list}")
 
     # Support for HTML body (optional)
     body_html = None
     if isinstance(body_text, dict):
-        # If called with dict, support {"text": ..., "html": ...}
         body_html = body_text.get("html")
         body_text = body_text.get("text", "")
 
@@ -78,28 +85,75 @@ def send_email(subject: str, body_text: str, to: Optional[Iterable[str]] = None,
     log = {"recipients": recipients, "cc": cc_list, "result": None, "error": None}
     try:
         if cfg.SMTP_SSL:
-            with smtplib.SMTP_SSL(cfg.SMTP_HOST, cfg.SMTP_PORT) as server: # type: ignore
+            print(f"[EMAIL] Using SSL connection to {cfg.SMTP_HOST}:{cfg.SMTP_PORT}")
+            conn_start = time.time()
+            with smtplib.SMTP_SSL(cfg.SMTP_HOST, cfg.SMTP_PORT, timeout=30) as server: # type: ignore
+                conn_time = time.time() - conn_start
+                print(f"[EMAIL] ✓ SSL connection established in {conn_time:.2f}s")
+                
                 if cfg.SMTP_USER and cfg.SMTP_PASSWORD:
+                    login_start = time.time()
+                    print(f"[EMAIL] Logging in as {cfg.SMTP_USER}...")
                     server.login(cfg.SMTP_USER, cfg.SMTP_PASSWORD)
+                    login_time = time.time() - login_start
+                    print(f"[EMAIL] ✓ Login successful in {login_time:.2f}s")
+                
+                send_start = time.time()
+                print(f"[EMAIL] Sending message...")
                 res = server.send_message(msg, to_addrs=recipients + cc_list)
+                send_time = time.time() - send_start
+                print(f"[EMAIL] ✓ Message sent in {send_time:.2f}s")
+                
                 log["result"] = str(res)
-                print(f"[EMAIL] Sent via SSL to: {recipients}. Result: {res}")
+                total_time = time.time() - start_time
+                print(f"[EMAIL] ✓ TOTAL TIME: {total_time:.2f}s")
                 return log
+                
         # STARTTLS or plain
-        with smtplib.SMTP(cfg.SMTP_HOST, cfg.SMTP_PORT) as server: # type: ignore
+        print(f"[EMAIL] Using STARTTLS connection to {cfg.SMTP_HOST}:{cfg.SMTP_PORT}")
+        conn_start = time.time()
+        with smtplib.SMTP(cfg.SMTP_HOST, cfg.SMTP_PORT, timeout=30) as server: # type: ignore
+            conn_time = time.time() - conn_start
+            print(f"[EMAIL] ✓ Connection established in {conn_time:.2f}s")
+            
+            ehlo_start = time.time()
             server.ehlo()
+            ehlo_time = time.time() - ehlo_start
+            print(f"[EMAIL] ✓ EHLO completed in {ehlo_time:.2f}s")
+            
             if cfg.SMTP_TLS:
+                tls_start = time.time()
+                print(f"[EMAIL] Starting TLS...")
                 server.starttls()
+                tls_time = time.time() - tls_start
+                print(f"[EMAIL] ✓ TLS started in {tls_time:.2f}s")
+                
+                ehlo2_start = time.time()
                 server.ehlo()
+                ehlo2_time = time.time() - ehlo2_start
+                print(f"[EMAIL] ✓ EHLO after TLS in {ehlo2_time:.2f}s")
+            
             if cfg.SMTP_USER and cfg.SMTP_PASSWORD:
+                login_start = time.time()
+                print(f"[EMAIL] Logging in as {cfg.SMTP_USER}...")
                 server.login(cfg.SMTP_USER, cfg.SMTP_PASSWORD)
+                login_time = time.time() - login_start
+                print(f"[EMAIL] ✓ Login successful in {login_time:.2f}s")
+            
+            send_start = time.time()
+            print(f"[EMAIL] Sending message...")
             res = server.send_message(msg, to_addrs=recipients + cc_list)
+            send_time = time.time() - send_start
+            print(f"[EMAIL] ✓ Message sent in {send_time:.2f}s")
+            
             log["result"] = str(res)
-            print(f"[EMAIL] Sent via TLS/plain to: {recipients}. Result: {res}")
+            total_time = time.time() - start_time
+            print(f"[EMAIL] ✓ TOTAL TIME: {total_time:.2f}s\n")
             return log
     except Exception as e:
+        total_time = time.time() - start_time
         log["error"] = f"{e}\n{traceback.format_exc()}"
-        print(f"[EMAIL][ERROR] Failed to send to {recipients}: {e}", file=sys.stderr)
+        print(f"[EMAIL][ERROR] Failed after {total_time:.2f}s: {e}", file=sys.stderr)
         print(traceback.format_exc(), file=sys.stderr)
         raise
     return log
