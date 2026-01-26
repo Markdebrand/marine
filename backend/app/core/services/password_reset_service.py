@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import secrets
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -45,7 +45,7 @@ class PasswordResetService:
         token_hash = PasswordResetService._hash_token(token)
         
         # Create expiration timestamp
-        expires_at = datetime.utcnow() + timedelta(minutes=expiry_minutes)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
         
         # Invalidate any existing unused tokens for this user
         PasswordResetService.invalidate_user_tokens(user_id, db)
@@ -90,7 +90,7 @@ class PasswordResetService:
             return None
         
         # Check if token has expired
-        if reset_token.expires_at < datetime.utcnow():
+        if reset_token.expires_at < datetime.now(timezone.utc):
             return None
         
         # Return the associated user
@@ -112,7 +112,7 @@ class PasswordResetService:
         ).first()
         
         if reset_token:
-            reset_token.used_at = datetime.utcnow()
+            reset_token.used_at = datetime.now(timezone.utc)
             db.commit()
     
     @staticmethod
@@ -128,7 +128,7 @@ class PasswordResetService:
         db.query(PasswordResetToken).filter(
             PasswordResetToken.user_id == user_id,
             PasswordResetToken.used_at.is_(None)
-        ).update({"used_at": datetime.utcnow()})
+        ).update({"used_at": datetime.now(timezone.utc)})
         db.commit()
     
     @staticmethod

@@ -77,9 +77,9 @@ export default function LoginCard() {
           <label className="flex items-center gap-2">
             <input type="checkbox" /> Remember me
           </label>
-          <a href="#" className="hover:underline">
+          <Link href="/forgot-password" className="text-sm hover:underline">
             Forgot?
-          </a>
+          </Link>
         </div>
         <button
           className="mt-3 w-2/3 md:w-1/2 mx-auto block rounded-md bg-red-600 px-6 py-2.5 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
