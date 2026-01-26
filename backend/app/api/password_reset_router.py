@@ -128,14 +128,16 @@ async def forgot_password(
     Request a password reset. Sends an email with a reset link.
     Always returns success for security (doesn't reveal if email exists).
     """
+    email_clean = request_body.email.strip().lower()
     try:
         from app.config import settings as cfg
         
-        # Find user by email
-        user = db.query(User).filter(User.email == request_body.email).first()
+        # Find user by email (case-insensitive)
+        user = db.query(User).filter(User.email == email_clean).first()
         
         # Always return success, even if user doesn't exist (security best practice)
         if not user:
+            print(f"[PASSWORD_RESET] User not found for email: {email_clean}")
             return {
                 "ok": True,
                 "message": "If that email exists in our system, we've sent a password reset link."
@@ -168,6 +170,7 @@ async def forgot_password(
         body_html = _compose_password_reset_html(user_name, reset_link)
         
         # Send email
+        print(f"[PASSWORD_RESET] Sending recovery email to: {user.email}")
         await async_send_email(
             subject,
             {"text": body_text, "html": body_html},
@@ -181,10 +184,13 @@ async def forgot_password(
         }
         
     except EmailConfigError as e:
+        print(f"[PASSWORD_RESET][ERROR] SMTP Configuration error: {e}")
         raise HTTPException(status_code=500, detail=f"Email configuration error: {e}")
     except Exception as e:
         # Log the error but don't expose details to user
-        print(f"[PASSWORD_RESET][ERROR] Failed to process forgot password request: {e}")
+        import traceback
+        print(f"[PASSWORD_RESET][ERROR] Failed to process forgot password request for {email_clean}: {e}")
+        print(traceback.format_exc())
         return {
             "ok": True,
             "message": "If that email exists in our system, we've sent a password reset link."

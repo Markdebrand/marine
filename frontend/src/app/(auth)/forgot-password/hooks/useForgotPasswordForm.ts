@@ -20,14 +20,15 @@ export function useForgotPasswordForm() {
     setFieldError(null);
     setSuccess(null);
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setFieldError("Please enter a valid email address");
       return;
     }
 
+    const cleanEmail = email.trim().toLowerCase();
     setLoading(true);
     try {
-      const res = await authService.forgotPassword(email);
+      const res = await authService.forgotPassword(cleanEmail);
       if (res.ok) {
         setSuccess("If that email exists in our system, we've sent a password reset link.");
       } else {
