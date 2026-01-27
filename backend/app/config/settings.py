@@ -248,6 +248,12 @@ SMTP_SSL: bool = os.getenv("SMTP_SSL", "false").lower() in ("1", "true", "yes", 
 # Si SMTP_TLS es true, se hará STARTTLS en SMTP plano (puerto típico 587)
 SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("1", "true", "yes", "on")
 
+# --- Password Reset ---
+# Tiempo de expiración de tokens de recuperación de contraseña (en minutos)
+PASSWORD_RESET_TOKEN_EXPIRY_MINUTES: int = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRY_MINUTES", "30"))
+# URL del frontend para el enlace de recuperación (debe incluir {token} como placeholder)
+PASSWORD_RESET_FRONTEND_URL: str = os.getenv("PASSWORD_RESET_FRONTEND_URL", f"{FRONTEND_URL}/reset-password?token={{token}}")
+
 # --- Contact form recipients ---
 # CONTACT_FORM_TO si está definido tiene prioridad sobre EMAIL_TO
 CONTACT_FORM_TO: List[str] = _list_from_env("CONTACT_FORM_TO", os.getenv("CONTACT_FORM_TO", ""))

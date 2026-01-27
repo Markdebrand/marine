@@ -86,4 +86,21 @@ export const authService = {
       });
     } catch {}
   },
+  async forgotPassword(email: string) {
+    return await apiFetch<{ ok: boolean; message: string }>(`/auth/forgot-password`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+  async verifyResetToken(token: string) {
+    return await apiFetch<{ ok: boolean; valid: boolean; message: string }>(`/auth/verify-reset-token/${token}`, {
+      method: "GET",
+    });
+  },
+  async resetPassword(body: { token: string; new_password: string }) {
+    return await apiFetch<{ ok: boolean; message: string }>(`/auth/reset-password`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
 };

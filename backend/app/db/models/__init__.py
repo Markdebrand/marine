@@ -9,6 +9,7 @@ from .plan import Plan, Subscription
 from .rbac import Role, Permission, RolePermission, UserRole
 from .usage import UsageCounter
 from .activation import ActivationToken
+from .password_reset_token import PasswordResetToken
 from .enums import (
     MemberRole,
     SubscriptionStatus,
@@ -42,6 +43,7 @@ __all__ = [
     "SessionToken",
     "UsageCounter",
     "ActivationToken",
+    "PasswordResetToken",
     "MemberRole",
     "SubscriptionStatus",
     "SupportLevel",

@@ -36,6 +36,9 @@ class RequireAuthMiddleware(BaseHTTPMiddleware):
             "/auth/refresh",
             "/google_login/google/authorized",
             "/auth/google/",
+            "/auth/forgot-password",
+            "/auth/reset-password",
+            "/auth/verify-reset-token",
             "/whoami",
         ]
 

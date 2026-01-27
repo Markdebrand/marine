@@ -89,6 +89,13 @@ if 'registration_router' in globals() and registration_router:
 if ENABLE_CONTACT_FORMS and 'contact_form_router' in globals() and contact_form_router:
 	router.include_router(contact_form_router)
 router.include_router(activation_router)
+
+# Password Reset
+try:
+    from app.api.password_reset_router import router as password_reset_router
+    router.include_router(password_reset_router)
+except Exception as e:
+    print(f"Error loading password_reset_router: {e}")
 if ENABLE_ODOO_INTEGRATION and 'odoo_webhook_router' in globals() and odoo_webhook_router:
 	router.include_router(odoo_webhook_router)
 if ENABLE_ODOO_INTEGRATION and 'odoo_integration_router' in globals() and odoo_integration_router:
