@@ -40,6 +40,24 @@ HSO Marine Support Team
 """
 
 
+def _compose_user_setup_text(user_name: str, setup_link: str) -> str:
+    """Compose plain text email body for new user account setup."""
+    return f"""Welcome to HSO Marine, {user_name}!
+
+An administrator has created an account for you. To get started, you need to set up your password.
+
+Click the link below to set your password and access your account:
+{setup_link}
+
+This setup link will expire in 7 days.
+
+If you believe this email was sent in error, please disregard it.
+
+Best regards,
+HSO Marine Team
+"""
+
+
 def _compose_password_reset_html(user_name: str, reset_link: str) -> str:
     """Compose HTML email body for password reset."""
     return f"""
@@ -69,6 +87,40 @@ def _compose_password_reset_html(user_name: str, reset_link: str) -> str:
             
             <div style='margin-top: 32px; padding-top: 16px; border-top: 1px solid #e0e0e0; color: #888; font-size: 13px; text-align: center;'>
                 <em>Best regards,<br>HSO Marine Support Team</em>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def _compose_user_setup_html(user_name: str, setup_link: str) -> str:
+    """Compose HTML email body for new user account setup."""
+    return f"""
+    <html>
+    <body style='font-family: Arial, sans-serif; background: #f4f7f9; padding: 24px;'>
+        <div style='max-width: 600px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 40px; border: 1px solid #e1e8ed;'>
+            <div style='text-align: center; margin-bottom: 32px;'>
+                <h1 style='color: #1e293b; margin: 0; font-size: 24px; letter-spacing: -0.5px;'>Welcome to HSO Marine</h1>
+            </div>
+            
+            <p style='color: #334155; font-size: 16px; line-height: 1.6;'>Hi {user_name},</p>
+            
+            <p style='color: #334155; font-size: 16px; line-height: 1.6;'>An administrator has created an account for you on the HSO Marine platform. To get started, you'll need to configure your password.</p>
+            
+            <div style='text-align: center; margin: 40px 0;'>
+                <a href='{setup_link}' style='display: inline-block; background: #2563eb; color: #fff; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; transition: background 0.2s;'>Set Up Password</a>
+            </div>
+            
+            <p style='color: #64748b; font-size: 14px;'>Or copy and paste this link into your browser:</p>
+            <p style='background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #f1f5f9; color: #2563eb; word-break: break-all; font-size: 13px; font-family: monospace;'>{setup_link}</p>
+            
+            <div style='margin-top: 32px; padding: 16px; background: #eff6ff; border-radius: 8px; border-left: 4px solid #3b82f6;'>
+                <p style='margin: 0; font-size: 14px; color: #1e40af;'><strong>Tip:</strong> This setup link is valid for 7 days. After that, you'll need to use the "Forgot Password" feature to gain access.</p>
+            </div>
+            
+            <div style='margin-top: 40px; padding-top: 24px; border-top: 1px solid #f1f5f9; color: #94a3b8; font-size: 13px; text-align: center;'>
+                <p style='margin: 0;'>Thank you for joining us!<br><strong>The HSO Marine Team</strong></p>
             </div>
         </div>
     </body>
