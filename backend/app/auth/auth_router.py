@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query, BackgroundTasks
 from typing import cast
 from sqlalchemy.orm import Session
 from jose import jwt
@@ -115,6 +115,7 @@ def _clear_auth_cookies(response: Response):
 @router.post("/register", response_model=RegisterResponse)
 def register(
     body: RegisterRequest, 
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: models.User = Depends(require_superadmin)
 ):
@@ -157,14 +158,14 @@ def register(
         body_text = _compose_user_setup_text(user_name, setup_link)
         body_html = _compose_user_setup_html(user_name, setup_link)
         
-        # Send non-blocking (async) setup email
-        import asyncio
-        asyncio.create_task(async_send_email(
+        # Send non-blocking (async) setup email using FastAPI BackgroundTasks
+        background_tasks.add_task(
+            async_send_email,
             subject,
             {"text": body_text, "html": body_html},
             to=[persona.email],
             from_email=cfg.SMTP_USER
-        ))
+        )
     except Exception as e:
         # Don't fail the registration if email fails, but log it
         print(f"[REGISTER][ERROR] Failed to send setup email for {persona.email}: {e}")
