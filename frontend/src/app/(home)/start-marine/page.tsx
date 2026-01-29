@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Phone, Mail } from "lucide-react";
 import Image from "next/image";
 
@@ -9,6 +9,8 @@ type Values = {
     email: string;
     phone: string;
     company: string;
+    planId: number | '';
+    billingPeriod: string;
 };
 
 type Errors = Partial<Record<keyof Values, string>>;
@@ -32,16 +34,44 @@ function validate(values: Values): Errors {
     if (!phone) errs.phone = 'Phone number is required';
     else if (!/^\+?[0-9\s().-]{7,20}$/.test(phone)) errs.phone = 'Invalid phone number';
 
+    if (values.planId === '') errs.planId = 'Plan selection is required';
+    if (!values.billingPeriod) errs.billingPeriod = 'Billing period is required';
+
     return errs;
 }
 
 export default function StartMarinePage() {
-    const [values, setValues] = useState<Values>({ firstName: '', lastName: '', email: '', phone: '', company: '' });
+    const [values, setValues] = useState<Values>({ 
+        firstName: '', 
+        lastName: '', 
+        email: '', 
+        phone: '', 
+        company: '',
+        planId: '',
+        billingPeriod: ''
+    });
     const [errors, setErrors] = useState<Errors>({});
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [plans, setPlans] = useState<{ id: number; name: string }[]>([]);
 
-    const onChange = (field: keyof Values) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const res = await fetch(`${baseUrl}/registration/plans`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setPlans(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch plans", err);
+            }
+        };
+        fetchPlans();
+    }, []);
+
+    const onChange = (field: keyof Values) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         let raw = e.target.value;
         if (field === 'firstName' || field === 'lastName' || field === 'company') {
             raw = raw.replace(/[^\p{L}\s]/gu, '');
@@ -52,7 +82,12 @@ export default function StartMarinePage() {
         if (field === 'email') {
             raw = raw.replace(/[^A-Za-z0-9@._-]/g, '');
         }
-        const next = { ...values, [field]: raw } as Values;
+        
+        const next = { 
+            ...values, 
+            [field]: field === 'planId' ? (raw === '' ? '' : Number(raw)) : raw 
+        } as Values;
+        
         setValues(next);
         const fErrs = validate(next);
         setErrors((prev) => ({ ...prev, [field]: fErrs[field] }));
@@ -76,6 +111,8 @@ export default function StartMarinePage() {
                     email: values.email,
                     phone: values.phone,
                     company: values.company || null,
+                    plan_id: values.planId,
+                    billing_period: values.billingPeriod,
                 }),
             });
 
@@ -291,6 +328,44 @@ export default function StartMarinePage() {
                                         className="w-full rounded-xl bg-white px-4 py-3.5 text-slate-900 ring-2 ring-slate-300 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
                                         placeholder="Your Company Name"
                                     />
+                                </div>
+
+                                <div className="grid sm:grid-cols-2 gap-5">
+                                    <div>
+                                        <label htmlFor="planId" className="block text-sm font-semibold text-slate-900 mb-2">
+                                            Select Plan <span className="text-red-600">*</span>
+                                        </label>
+                                        <select
+                                            id="planId"
+                                            value={values.planId}
+                                            onChange={onChange('planId')}
+                                            className={`w-full rounded-xl bg-white px-4 py-3.5 text-slate-900 ring-2 focus:outline-none focus:ring-2 transition-all ${errors.planId ? 'ring-red-300 focus:ring-red-500' : 'ring-slate-300 focus:ring-red-500'}`}
+                                        >
+                                            <option value="">Choose a plan</option>
+                                            {plans.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                        {errors.planId && <p className="text-xs text-red-600 mt-2 font-medium">{errors.planId}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="billingPeriod" className="block text-sm font-semibold text-slate-900 mb-2">
+                                            Billing Period <span className="text-red-600">*</span>
+                                        </label>
+                                        <select
+                                            id="billingPeriod"
+                                            value={values.billingPeriod}
+                                            onChange={onChange('billingPeriod')}
+                                            className={`w-full rounded-xl bg-white px-4 py-3.5 text-slate-900 ring-2 focus:outline-none focus:ring-2 transition-all ${errors.billingPeriod ? 'ring-red-300 focus:ring-red-500' : 'ring-slate-300 focus:ring-red-500'}`}
+                                        >
+                                            <option value="">Select period</option>
+                                            {['Monthly', 'Quarterly', 'Semiannual', 'Annual'].map(period => (
+                                                <option key={period} value={period}>{period}</option>
+                                            ))}
+                                        </select>
+                                        {errors.billingPeriod && <p className="text-xs text-red-600 mt-2 font-medium">{errors.billingPeriod}</p>}
+                                    </div>
                                 </div>
 
                                 <button

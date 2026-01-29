@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.utils.adapters.email_adapter import async_send_email, EmailConfigError
+from app.db import models
 
 
 router = APIRouter(prefix="/registration", tags=["registration"])
@@ -15,9 +16,11 @@ class StartMarineRegistration(BaseModel):
     email: EmailStr
     phone: str = Field(..., min_length=7, max_length=30)
     company: str | None = Field(None, max_length=200)
+    plan_id: int
+    billing_period: str
 
 
-def _compose_registration_body(data: StartMarineRegistration) -> str:
+def _compose_registration_body(data: StartMarineRegistration, plan_name: str) -> str:
     """Compose plain text email body for registration."""
     lines = [
         "New Start Marine Registration:",
@@ -26,13 +29,15 @@ def _compose_registration_body(data: StartMarineRegistration) -> str:
         f"Email: {data.email}",
         f"Phone: {data.phone}",
         f"Company: {data.company or '-'}",
+        f"Plan: {plan_name}",
+        f"Billing Period: {data.billing_period}",
         "",
         "Please follow up with this lead as soon as possible.",
     ]
     return "\n".join(lines)
 
 
-def _compose_registration_html(data: StartMarineRegistration) -> str:
+def _compose_registration_html(data: StartMarineRegistration, plan_name: str) -> str:
     """Compose HTML email body for registration."""
     return f"""
     <html>
@@ -57,6 +62,14 @@ def _compose_registration_html(data: StartMarineRegistration) -> str:
                     <td style='font-weight: bold; padding: 8px 0; color: #555;'>Company:</td>
                     <td style='padding: 8px 0;'>{data.company or '-'}</td>
                 </tr>
+                <tr>
+                    <td style='font-weight: bold; padding: 8px 0; color: #555;'>Plan:</td>
+                    <td style='padding: 8px 0;'>{plan_name}</td>
+                </tr>
+                <tr>
+                    <td style='font-weight: bold; padding: 8px 0; color: #555;'>Billing Period:</td>
+                    <td style='padding: 8px 0;'>{data.billing_period}</td>
+                </tr>
             </table>
             
             <div style='margin-top: 24px; padding: 16px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;'>
@@ -72,6 +85,15 @@ def _compose_registration_html(data: StartMarineRegistration) -> str:
     """
 
 
+@router.get("/plans")
+def get_plans(db: Session = Depends(get_db)):
+    """
+    Get all available plans.
+    """
+    plans = db.query(models.Plan).all()
+    return [{"id": p.id, "name": p.name} for p in plans]
+
+
 @router.post("/start-marine")
 async def register_start_marine(form: StartMarineRegistration, db: Session = Depends(get_db)):
     """
@@ -80,10 +102,14 @@ async def register_start_marine(form: StartMarineRegistration, db: Session = Dep
     try:
         from app.config import settings as cfg
         
+        # Get plan name from DB
+        plan = db.query(models.Plan).filter(models.Plan.id == form.plan_id).first()
+        plan_name = plan.name if plan else f"Unknown (ID: {form.plan_id})"
+        
         # Prepare email content for sales team
         subject = f"New Start Marine Registration: {form.first_name} {form.last_name}"
-        body_text = _compose_registration_body(form)
-        body_html = _compose_registration_html(form)
+        body_text = _compose_registration_body(form, plan_name)
+        body_html = _compose_registration_html(form, plan_name)
         
         # Get recipients (defaults to info@hsomarine.com)
         import os

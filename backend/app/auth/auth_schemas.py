@@ -3,8 +3,8 @@ from typing import Literal
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=6)
-    password_confirmation: str = Field(min_length=6)
+    password: str | None = Field(None, min_length=6)
+    password_confirmation: str | None = Field(None, min_length=6)
     role: str | None = None
     first_name: str | None = None
     last_name: str | None = None

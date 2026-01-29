@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query, BackgroundTasks
 from typing import cast
 from sqlalchemy.orm import Session
 from jose import jwt
@@ -115,6 +115,7 @@ def _clear_auth_cookies(response: Response):
 @router.post("/register", response_model=RegisterResponse)
 def register(
     body: RegisterRequest, 
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: models.User = Depends(require_superadmin)
 ):
@@ -130,6 +131,47 @@ def register(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+    # NEW: Trigger setup email flow for admin-created users
+    try:
+        from app.core.services.password_reset_service import PasswordResetService
+        from app.utils.adapters.email_adapter import async_send_email
+        from app.config import settings as cfg
+        from app.api.password_reset_router import _compose_user_setup_text, _compose_user_setup_html
+        
+        # Setup tokens have a longer expiry (7 days = 10080 minutes)
+        # We can make this configurable later if needed
+        SETUP_EXPIRY_MINUTES = 10080 
+        
+        token = PasswordResetService.generate_reset_token(
+            persona.id,
+            db,
+            expiry_minutes=SETUP_EXPIRY_MINUTES
+        )
+        
+        # Generate link (use same route as reset-password)
+        template = getattr(cfg, 'PASSWORD_RESET_FRONTEND_URL', f"{cfg.FRONTEND_URL}/reset-password?token={{token}}")
+        setup_link = template.format(token=token)
+        
+        user_name = persona.first_name or persona.email.split('@')[0]
+        subject = "Welcome to HSO Marine — Setup Your Account"
+        body_text = _compose_user_setup_text(user_name, setup_link)
+        body_html = _compose_user_setup_html(user_name, setup_link)
+        
+        # Send non-blocking (async) setup email using FastAPI BackgroundTasks
+        background_tasks.add_task(
+            async_send_email,
+            subject,
+            {"text": body_text, "html": body_html},
+            to=[persona.email],
+            from_email=cfg.SMTP_USER
+        )
+    except Exception as e:
+        # Don't fail the registration if email fails, but log it
+        print(f"[REGISTER][ERROR] Failed to send setup email for {persona.email}: {e}")
+        import traceback
+        traceback.print_exc()
+
     return RegisterResponse(id=persona.id, email=persona.email)  # type: ignore
 
 

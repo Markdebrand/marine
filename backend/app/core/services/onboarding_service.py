@@ -8,10 +8,16 @@ import calendar
 
 class UserOnboardingService:
     @staticmethod
-    def create_user_with_started_plan(db: Session, email: str, password: str, **kwargs) -> m.User:
+    def create_user_with_started_plan(db: Session, email: str, password: str | None = None, **kwargs) -> m.User:
         email = email.lower()
         if get_user_by_email(db, email):
             raise ValueError("Email ya registrado")
+        
+        # Si no hay password, generamos uno aleatorio largo para seguridad base
+        # El usuario lo cambiará mediante el setup token
+        if not password:
+            import secrets
+            password = secrets.token_urlsafe(32)
         
         # Filtrar campos permitidos para el modelo User
         user_fields = {
