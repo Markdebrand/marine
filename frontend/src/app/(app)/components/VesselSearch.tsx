@@ -20,7 +20,7 @@ interface VesselDetailsWrapper {
 }
 
 export default function VesselSearch() {
-  const [mmsi, setMmsi] = useState("");
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VesselDetailsWrapper | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function VesselSearch() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mmsi) return;
+    if (!query.trim()) return;
 
     setLoading(true);
     setError(null);
@@ -40,7 +40,7 @@ export default function VesselSearch() {
       // URL directa a /details ya que en main.py no hay prefijo global /api
       // Usamos variable de entorno si existe, o localhost:8000 por defecto
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${baseUrl}/details/${mmsi}`);
+      const res = await fetch(`${baseUrl}/details/${encodeURIComponent(query.trim())}`);
       
       if (!res.ok) {
         throw new Error("Vessel not found or error fetching details");
@@ -74,9 +74,9 @@ export default function VesselSearch() {
         <div className="relative">
           <input
             type="text"
-            value={mmsi}
-            onChange={(e) => setMmsi(e.target.value)}
-            placeholder="Search MMSI..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search MMSI or Name..."
             className="pl-9 pr-4 py-1 rounded-full border border-slate-300 bg-white/50 backdrop-blur-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-500 w-48 shadow-sm transition-all focus:w-64"
           />
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />

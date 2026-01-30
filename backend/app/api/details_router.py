@@ -19,23 +19,45 @@ def get_ais_bridge_service():
     from app.main import app
     return getattr(app.state, "ais_bridge", None)
 
-@router.get("/{mmsi}", response_model=VesselDetailsWrapper)
+@router.get("/{query}", response_model=VesselDetailsWrapper)
 async def get_ship_details(
-    mmsi: str = Path(..., description="MMSI del barco"),
+    query: str = Path(..., description="MMSI o nombre del barco"),
     service = Depends(get_ais_bridge_service),
     db: Session = Depends(get_db)
 ):
-    print(f"=== SOLICITANDO DETALLES PARA MMSI: {mmsi} ===")
+    print(f"=== SOLICITANDO DETALLES PARA QUERY: {query} ===")
     
+    mmsi = None
+    
+    # Intentar tratar query como MMSI si son 9 dígitos
+    if query.isdigit() and len(query) == 9:
+        mmsi = query
+    else:
+        # Buscar por nombre en la base de datos
+        logger.info(f"Buscando barco por nombre: {query}")
+        vessel = db.execute(
+            select(MarineVessel).where(MarineVessel.name.ilike(f"%{query}%"))
+        ).first()
+        
+        if vessel:
+            vessel = vessel[0] # SQLAlchemy result proxy returns tuples when using select(Model) in some versions or depending on execution
+            mmsi = vessel.mmsi
+            logger.info(f"Nombre '{query}' resuelto a MMSI: {mmsi}")
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No se encontró ningún barco con el nombre o MMSI: {query}"
+            )
+
     if not service:
         # Si el servicio no está disponible (ej: configuración) igual intentamos DB
         pass
 
-    # Validar MMSI
-    if not mmsi.isdigit() or len(mmsi) != 9:
+    # Validar que tenemos un MMSI válido (ya sea directo o resuelto)
+    if not mmsi or not mmsi.isdigit() or len(mmsi) != 9:
         raise HTTPException(
             status_code=400,
-            detail="MMSI debe ser un número de 9 dígitos"
+            detail="MMSI inválido o no se pudo resolver el nombre"
         )
 
     realtime_data = None
