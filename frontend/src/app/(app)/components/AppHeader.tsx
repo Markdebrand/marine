@@ -52,7 +52,7 @@ export default function AppHeader() {
 
   return (
     <div className={containerClass} style={isMap ? { left: '50%', transform: 'translateX(-50%)' } : {}}>
-      <div className={`${isMap ? 'w-max' : 'max-w-7xl'} px-4`}>
+      <div className={`${isMap ? 'w-max' : 'max-w-7xl mx-auto'} px-4`}>
         <div className="glass-card flex items-center justify-between gap-4 p-2 border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
           <div className="flex items-center gap-2">
             <Image

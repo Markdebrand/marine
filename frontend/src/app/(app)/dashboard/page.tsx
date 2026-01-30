@@ -98,52 +98,7 @@ export default function DashboardPage() {
           />
         </section>
 
-        {/* System health (single card) */}
-        <section className="mt-8">
-          <h2 className="text-slate-800 font-semibold mb-3">System health</h2>
-          <div className="glass-card p-5">
-            <div className="text-slate-900 font-semibold">System health</div>
-            <div className="mt-2 text-sm text-slate-600 flex items-center gap-2">
-              {healthError ? (
-                <>
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-50 text-red-600 ring-1 ring-red-200">
-                    ✕
-                  </span>
-                  {healthError}
-                </>
-              ) : loading ? (
-                <div className="h-5 w-24 rounded bg-slate-100 animate-pulse" />
-              ) : (
-                <span className="text-green-700">All services OK</span>
-              )}
-            </div>
-          </div>
-        </section>
 
-        {/* Quick actions (3 cards) */}
-        <section className="mt-8">
-          <h2 className="text-slate-800 font-semibold mb-3">Quick actions</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <ActionCard
-              icon={<Search className="h-5 w-5 text-red-600" />}
-              title="Search a vessel"
-              description="Find by MMSI/IMO/name and open its sheet."
-              href="/map"
-            />
-            <ActionCard
-              icon={<MapIcon className="h-5 w-5 text-red-600" />}
-              title="Create a geofence alert"
-              description="Define an area and get notified on enter/exit."
-              href="/services"
-            />
-            <ActionCard
-              icon={<PlusCircle className="h-5 w-5 text-red-600" />}
-              title="Add to watchlist"
-              description="Track a vessel from your dashboard."
-              href="/watchlist"
-            />
-          </div>
-        </section>
       </main>
     </Protected>
   );
