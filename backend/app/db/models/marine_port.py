@@ -12,7 +12,7 @@ class MarinePort(Base):
     __tablename__ = "marine_port"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    unlocode = Column(String(16), nullable=False, unique=True, index=True)
+    unlocode = Column(String(16), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     country = Column(String(128))
     ext_refs = Column(postgresql.JSONB, nullable=True)
@@ -20,7 +20,7 @@ class MarinePort(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Identificación
-    port_number = Column(Integer, nullable=True, index=True)
+    port_number = Column(Integer, nullable=True, unique=True, index=True)
     port_name = Column(String(255), nullable=True)
     region_number = Column(Integer, nullable=True)
     region_name = Column(String(255), nullable=True)
