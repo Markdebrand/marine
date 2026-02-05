@@ -6,7 +6,9 @@ from sqlalchemy import text
 from app.db.database import get_db
 from app.db import models as m
 from app.core.auth.guards import require_admin
+from app.core.auth.session_manager import get_current_user
 from geoalchemy2.functions import ST_SetSRID, ST_Point
+from app.schemas.port_schemas import PortListResponse, PortListEntry
 
 router = APIRouter(prefix="/ports", tags=["Ports"])
 
@@ -203,3 +205,38 @@ async def sync_ports(db: Session = Depends(get_db), current_user: m.User = Depen
         "ports added": added_count,
         "ports updated": updated_count
     }
+
+
+@router.get("/list", response_model=PortListResponse)
+async def list_ports(db: Session = Depends(get_db), current_user: m.User = Depends(get_current_user)):
+    """
+    Get a list of all ports with their basic info for map display.
+    """
+    ports = db.query(m.MarinePort.port_number, m.MarinePort.latitude, m.MarinePort.longitude).all()
+    
+    # Map the results to the response format
+    port_entries = [
+        PortListEntry(port_number=p.port_number, latitude=p.latitude, longitude=p.longitude)
+        for p in ports
+    ]
+    
+    return PortListResponse(ports=port_entries)
+
+
+@router.get("/details/{port_number}")
+async def get_port_details(port_number: int, db: Session = Depends(get_db), current_user: m.User = Depends(get_current_user)):
+    """
+    Get all details for a specific port by its port_number.
+    """
+    port = db.query(m.MarinePort).filter(m.MarinePort.port_number == port_number).first()
+    
+    if not port:
+        raise HTTPException(status_code=404, detail=f"Port with number {port_number} not found")
+        
+    # Manual conversion to dict to safely exclude the binary 'coords' field
+    port_data = {}
+    for column in m.MarinePort.__table__.columns:
+        if column.name != 'coords':
+            port_data[column.name] = getattr(port, column.name)
+            
+    return port_data
