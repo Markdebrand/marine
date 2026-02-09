@@ -46,6 +46,18 @@ type VesselDetails = {
   status: string;
 };
 
+type Port = {
+  port_number: number;
+  lat: number | null;  // ycoord from backend
+  lon: number | null;  // xcoord from backend
+};
+
+type PortListResponse = {
+  ports: Port[];
+};
+
+type PortDetails = Record<string, any>;  // Dynamic port details from backend
+
 // 🆕 Tipo para el error de barco no disponible
 type VesselError = {
   mmsi: string;
@@ -85,6 +97,10 @@ export default function AisLiveMap({
   
   // 🆕 Estado para manejar errores de barcos
   const [vesselError, setVesselError] = useState<VesselError | null>(null);
+  
+  // 🆕 Estado para puertos
+  const [selectedPort, setSelectedPort] = useState<PortDetails | null>(null);
+  const [loadingPortDetails, setLoadingPortDetails] = useState(false);
 
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
@@ -96,6 +112,9 @@ export default function AisLiveMap({
   const LAYER_UNCLUSTERED_ID = "vessels-unclustered";
   const LAYER_SHIP_SYMBOL_ID = "vessels-ship-symbol";
   const SHIP_IMAGE_ID = "ship-icon";
+  const PORTS_SOURCE_ID = "ports-source";
+  const PORTS_LAYER_ID = "ports-layer";
+  const PORT_IMAGE_ID = "port-icon";
 
   const [connected, setConnected] = useState(false);
   const [vesselCount, setVesselCount] = useState(0);
@@ -106,6 +125,7 @@ export default function AisLiveMap({
   const [mounted, setMounted] = useState(false);
   const initialCenterRef = useRef(center);
   const initialZoomRef = useRef(zoom);
+  const [portsLoaded, setPortsLoaded] = useState(false);
 
   const fetchTotalVessels = async () => {
     setLoadingVesselCount(true);
@@ -442,6 +462,92 @@ export default function AisLiveMap({
             }
           }
         }
+        
+        // ✨ Load and add ports layer
+        if (mapRef.current && !mapRef.current.hasImage(PORT_IMAGE_ID)) {
+          const portImg = new window.Image(24, 24);
+          portImg.onload = () => {
+            try {
+              if (!mapRef.current) return;
+              mapRef.current.addImage(PORT_IMAGE_ID, portImg, { pixelRatio: 2 });
+              
+              // Add ports source
+              if (!mapRef.current.getSource(PORTS_SOURCE_ID)) {
+                mapRef.current.addSource(PORTS_SOURCE_ID, {
+                  type: "geojson",
+                  data: {
+                    type: "FeatureCollection",
+                    features: [],
+                  } as FeatureCollection<Point>,
+                } as unknown as GeoJSONSourceSpecification);
+              }
+              
+              // Add ports layer
+              if (!mapRef.current.getLayer(PORTS_LAYER_ID)) {
+                mapRef.current.addLayer({
+                  id: PORTS_LAYER_ID,
+                  type: "symbol",
+                  source: PORTS_SOURCE_ID,
+                  layout: {
+                    "icon-image": PORT_IMAGE_ID,
+                    "icon-size": [
+                      "interpolate",
+                      ["linear"],
+                      ["zoom"],
+                      0, 0.8,
+                      6, 1.0,
+                      10, 1.2,
+                      14, 1.5,
+                      18, 2.0
+                    ],
+                    "icon-allow-overlap": true,  // Ensure ports always render on top
+                    "icon-ignore-placement": true,  // Ports don't affect placement of other symbols
+                    "symbol-z-order": "source",  // Maintain source order for consistent rendering
+                  },
+                  paint: {},
+                });
+              }
+              
+              // Fetch and display ports
+              void (async () => {
+                try {
+                  const portsResponse = await apiFetch<PortListResponse>("/ports/list");
+                  const features = portsResponse.ports
+                    .filter(p => p.lat != null && p.lon != null && Number.isFinite(p.lat) && Number.isFinite(p.lon))
+                    .map(p => ({
+                      type: "Feature" as const,
+                      id: p.port_number,
+                      geometry: {
+                        type: "Point" as const,
+                        coordinates: [p.lon!, p.lat!],
+                      },
+                      properties: {
+                        port_number: p.port_number,
+                      },
+                    }));
+                    
+                  const fc: FeatureCollection<Point> = {
+                    type: "FeatureCollection",
+                    features,
+                  };
+                  
+                  const portsSource = mapRef.current?.getSource(PORTS_SOURCE_ID) as GeoJSONSource | undefined;
+                  if (portsSource) {
+                    portsSource.setData(fc);
+                    setPortsLoaded(true);
+                    console.debug(`[PORTS] Loaded ${features.length} ports`);
+                  }
+                } catch (error) {
+                  console.error("[PORTS] Failed to load ports:", error);
+                }
+              })();
+            } catch (error) {
+              console.error("[PORTS] Error adding port layer:", error);
+            }
+          };
+          portImg.src = "/images/port.svg";
+        }
+        
         sourceReadyRef.current = true;
 
         try {
@@ -555,6 +661,48 @@ export default function AisLiveMap({
             });
 
             currentMap.on("mouseleave", LAYER_SHIP_SYMBOL_ID, () => {
+                currentMap.getCanvas().style.cursor = "";
+            });
+            
+            // 🆕 Port click handler
+            currentMap.on("click", PORTS_LAYER_ID, async (e) => {
+                const features = currentMap.queryRenderedFeatures(e.point, {
+                    layers: [PORTS_LAYER_ID],
+                });
+
+                if (!features || features.length === 0) return;
+
+                const feature = features[0];
+                const props = (feature.properties ?? {}) as Record<string, unknown>;
+                const portNumber = props?.port_number;
+
+                if (!portNumber || typeof portNumber !== 'number') {
+                    console.warn(`[PORT] Click ignored: Invalid port_number`, props);
+                    return;
+                }
+
+                // Clear previous selections
+                setVesselError(null);
+                setSelectedVessel(null);
+                setSelectedPort(null);
+
+                setLoadingPortDetails(true);
+                try {
+                    const response = await apiFetch<PortDetails>(`/ports/details/${portNumber}`);
+                    setSelectedPort({ ...response, port_number: portNumber });
+                } catch (error: any) {
+                    console.error("[PORT] Error fetching details:", error);
+                    // Could add port error handling similar to vessels if needed
+                } finally {
+                    setLoadingPortDetails(false);
+                }
+            });
+
+            currentMap.on("mouseenter", PORTS_LAYER_ID, () => {
+                currentMap.getCanvas().style.cursor = "pointer";
+            });
+
+            currentMap.on("mouseleave", PORTS_LAYER_ID, () => {
                 currentMap.getCanvas().style.cursor = "";
             });
         } else {
@@ -871,8 +1019,12 @@ export default function AisLiveMap({
             mapRef.current.removeLayer(LAYER_CLUSTERS_ID);
           if (mapRef.current?.getLayer(LAYER_UNCLUSTERED_ID))
             mapRef.current.removeLayer(LAYER_UNCLUSTERED_ID);
+          if (mapRef.current?.getLayer(PORTS_LAYER_ID))
+            mapRef.current.removeLayer(PORTS_LAYER_ID);
           if (mapRef.current?.getSource(SOURCE_ID))
             mapRef.current.removeSource(SOURCE_ID);
+          if (mapRef.current?.getSource(PORTS_SOURCE_ID))
+            mapRef.current.removeSource(PORTS_SOURCE_ID);
         } catch {}
         mapRef.current?.remove();
         mapRef.current = null;
@@ -950,8 +1102,87 @@ export default function AisLiveMap({
         </div>
       )}
       
+      {/* 🆕 Panel de detalles del puerto */}
+      {selectedPort && (
+        <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10 border-l-4 border-emerald-500">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">
+                {selectedPort.port_name || selectedPort.name || "Port Details"}
+              </h2>
+              <p className="text-sm text-emerald-600">Port #{selectedPort.port_number}</p>
+            </div>
+            <button 
+              onClick={() => setSelectedPort(null)}
+              className="text-gray-500 hover:text-gray-700 text-xl"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {selectedPort.port_name && (
+              <div className="flex justify-between">
+                <span className="font-medium">Port Name:</span>
+                <span>{selectedPort.port_name}</span>
+              </div>
+            )}
+            {selectedPort.country_name && (
+              <div className="flex justify-between">
+                <span className="font-medium">Country:</span>
+                <span>{selectedPort.country_name}</span>
+              </div>
+            )}
+            {selectedPort.region_name && (
+              <div className="flex justify-between">
+                <span className="font-medium">Region:</span>
+                <span>{selectedPort.region_name}</span>
+              </div>
+            )}
+            {selectedPort.unlocode && (
+              <div className="flex justify-between">
+                <span className="font-medium">UN/LOCODE:</span>
+                <span className="font-mono text-sm">{selectedPort.unlocode}</span>
+              </div>
+            )}
+            {(selectedPort.ycoord != null && selectedPort.xcoord != null) && (
+              <div className="flex justify-between">
+                <span className="font-medium">Coordinates:</span>
+                <span className="font-mono text-sm">
+                  {selectedPort.ycoord?.toFixed(4)}, {selectedPort.xcoord?.toFixed(4)}
+                </span>
+              </div>
+            )}
+            {selectedPort.alternate_name && (
+              <div className="flex justify-between">
+                <span className="font-medium">Alternate Name:</span>
+                <span>{selectedPort.alternate_name}</span>
+              </div>
+            )}
+            {selectedPort.nav_area && (
+              <div className="flex justify-between">
+                <span className="font-medium">Nav Area:</span>
+                <span>{selectedPort.nav_area}</span>
+              </div>
+            )}
+            {selectedPort.publication_number && (
+              <div className="flex justify-between">
+                <span className="font-medium">Publication:</span>
+                <span>{selectedPort.publication_number}</span>
+              </div>
+            )}
+            {selectedPort.chart_number && (
+              <div className="flex justify-between">
+                <span className="font-medium">Chart:</span>
+                <span>{selectedPort.chart_number}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       {/* Panel de detalles del barco (exitoso) */}
-      {selectedVessel && (
+      {selectedVessel && !selectedPort && (
         <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-xl font-bold text-gray-800">
@@ -1037,11 +1268,11 @@ export default function AisLiveMap({
       </div>
 
       {/* Indicador de carga */}
-      {loadingDetails && (
+      {(loadingDetails || loadingPortDetails) && (
         <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg z-10">
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-            <span>Loading details...</span>
+            <span>Loading {loadingPortDetails ? 'port' : 'vessel'} details...</span>
           </div>
         </div>
       )}

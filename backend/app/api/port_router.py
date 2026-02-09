@@ -211,12 +211,17 @@ async def sync_ports(db: Session = Depends(get_db), current_user: m.User = Depen
 async def list_ports(db: Session = Depends(get_db), current_user: m.User = Depends(get_current_user)):
     """
     Get a list of all ports with their basic info for map display.
+    Returns xcoord (longitude) and ycoord (latitude) as decimal coordinates.
     """
-    ports = db.query(m.MarinePort.port_number, m.MarinePort.latitude, m.MarinePort.longitude).all()
+    ports = db.query(
+        m.MarinePort.port_number, 
+        m.MarinePort.xcoord,  # longitude in decimal
+        m.MarinePort.ycoord   # latitude in decimal
+    ).all()
     
     # Map the results to the response format
     port_entries = [
-        PortListEntry(port_number=p.port_number, latitude=p.latitude, longitude=p.longitude)
+        PortListEntry(port_number=p.port_number, lon=p.xcoord, lat=p.ycoord)
         for p in ports
     ]
     

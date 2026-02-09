@@ -3,8 +3,8 @@ from typing import List, Optional
 
 class PortListEntry(BaseModel):
     port_number: int
-    latitude: Optional[str] = None
-    longitude: Optional[str] = None
+    lon: Optional[float] = None  # xcoord from DB
+    lat: Optional[float] = None  # ycoord from DB
 
 class PortListResponse(BaseModel):
     ports: List[PortListEntry]
