@@ -228,6 +228,35 @@ async def list_ports(db: Session = Depends(get_db), current_user: m.User = Depen
     return PortListResponse(ports=port_entries)
 
 
+@router.get("/search")
+async def search_ports(
+    unlocode: str = None,
+    db: Session = Depends(get_db),
+    current_user: m.User = Depends(get_current_user)
+):
+    """
+    Search for a port by UN/LOCODE.
+    """
+    if not unlocode:
+        raise HTTPException(status_code=400, detail="UN/LOCODE parameter is required")
+
+    # Case-insensitive search
+    # unlocode column matches the input
+    port = db.query(m.MarinePort).filter(m.MarinePort.unlocode.ilike(unlocode)).first()
+    
+    if not port:
+        raise HTTPException(status_code=404, detail=f"Port with UN/LOCODE {unlocode} not found")
+        
+    # Manual conversion to dict to safely exclude the binary 'coords' field
+    # reusing logic from get_port_details
+    port_data = {}
+    for column in m.MarinePort.__table__.columns:
+        if column.name != 'coords':
+            port_data[column.name] = getattr(port, column.name)
+            
+    return port_data
+
+
 @router.get("/details/{port_number}")
 async def get_port_details(port_number: int, db: Session = Depends(get_db), current_user: m.User = Depends(get_current_user)):
     """

@@ -1231,7 +1231,14 @@ export default function AisLiveMap({
             </div>
             <div className="flex justify-between">
               <span className="font-medium">Last Update:</span>
-              <span>{new Date(selectedVessel.data.timestamp).toLocaleString()}</span>
+              <span>{(() => {
+                try {
+                  const d = new Date(selectedVessel.data.timestamp);
+                  return isNaN(d.getTime()) ? selectedVessel.data.timestamp : d.toLocaleString();
+                } catch {
+                  return selectedVessel.data.timestamp || "N/A";
+                }
+              })()}</span>
             </div>
           </div>
         </div>
