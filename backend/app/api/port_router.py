@@ -236,16 +236,37 @@ async def search_ports(
 ):
     """
     Search for a port by UN/LOCODE.
+    Includes normalization logic for messy inputs:
+    - Takes last 6 chars
+    - Removes symbols
+    - Normalizes "USXXX" to "US XXX"
     """
     if not unlocode:
         raise HTTPException(status_code=400, detail="UN/LOCODE parameter is required")
 
+    # 1. Take last 6 characters
+    raw = unlocode.strip()
+    if len(raw) > 6:
+        raw = raw[-6:]
+    
+    # 2. Remove symbols: .,><_-?/
+    import re
+    cleaned = re.sub(r'[.,><_\-\?/]', '', raw)
+    
+    # 3. Normalize US ports (USXXX -> US XXX)
+    # If it starts with US, length is 5, and no space exists
+    if cleaned.upper().startswith("US") and len(cleaned) == 5:
+        cleaned = f"{cleaned[:2]} {cleaned[2:]}"
+        
+    final_query = cleaned.strip()
+    
+    # logging.info(f"Searching port: input='{unlocode}' -> normalized='{final_query}'")
+
     # Case-insensitive search
-    # unlocode column matches the input
-    port = db.query(m.MarinePort).filter(m.MarinePort.unlocode.ilike(unlocode)).first()
+    port = db.query(m.MarinePort).filter(m.MarinePort.unlocode.ilike(final_query)).first()
     
     if not port:
-        raise HTTPException(status_code=404, detail=f"Port with UN/LOCODE {unlocode} not found")
+        raise HTTPException(status_code=404, detail=f"Port with UN/LOCODE {final_query} not found (normalized from {unlocode})")
         
     # Manual conversion to dict to safely exclude the binary 'coords' field
     # reusing logic from get_port_details
