@@ -138,3 +138,11 @@ except Exception:
 	invoices_router = None  # type: ignore
 if 'invoices_router' in globals() and invoices_router:
 	router.include_router(invoices_router)
+ 
+# Ports
+try:
+	from app.api.port_router import router as port_router
+	router.include_router(port_router)
+except Exception as e:
+	import logging
+	logging.error(f"Error loading port_router: {e}")
