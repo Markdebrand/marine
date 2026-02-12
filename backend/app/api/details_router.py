@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 import logging
 from typing import Optional
 import asyncio
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -18,6 +19,45 @@ logger = logging.getLogger(__name__)
 def get_ais_bridge_service():
     from app.main import app
     return getattr(app.state, "ais_bridge", None)
+
+def parse_timestamp(ts_val) -> str:
+    """
+    Intenta parsear un timestamp en varios formatos y devolver ISO 8601 string.
+    Si falla o es nulo, devuelve la fecha actual en UTC.
+    """
+    if not ts_val:
+        return datetime.now(timezone.utc).isoformat()
+    
+    if isinstance(ts_val, datetime):
+        return ts_val.isoformat()
+    
+    ts_str = str(ts_val).strip()
+    if not ts_str:
+        return datetime.now(timezone.utc).isoformat()
+        
+    # Intentar formatos comunes
+    formats = [
+        "%Y-%m-%dT%H:%M:%S.%f%z",  # ISO con timezone
+        "%Y-%m-%dT%H:%M:%S%z",     # ISO sin microsegundos
+        "%Y-%m-%d %H:%M:%S%z",     # Espacio en vez de T
+        "%Y-%m-%d %H:%M:%S",       # Sin timezone (asumir UTC)
+        "%Y-%m-%dT%H:%M:%S",       # ISO naive
+    ]
+    
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(ts_str, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+        except ValueError:
+            continue
+            
+    # Si todo falla, devolver el string original o datetime actual como fallback seguro
+    # Preferimos devolver algo parseable por JS si es posible, pero si es basura,
+    # el frontend tendrá que lidiar con ello o mostrar 'Invalid Date'.
+    # Retornamos el original por si acaso es un formato que JS sí entiende nativamente.
+    return ts_str
 
 @router.get("/{query}", response_model=VesselDetailsWrapper)
 async def get_ship_details(
@@ -94,7 +134,7 @@ async def get_ship_details(
                 eta=str(realtime_data.get('eta', 'N/A')),
                 draught=str(realtime_data.get('draught', 'N/A')) if realtime_data.get('draught') is not None else 'N/A',
                 destination=str(realtime_data.get('destination', 'N/A')),
-                timestamp=str(realtime_data.get('timestamp', '')),
+                timestamp=parse_timestamp(realtime_data.get('timestamp')),
                 latitude=None,
                 longitude=None
             )
@@ -141,7 +181,7 @@ async def get_ship_details(
             eta=ext_refs.get('eta', 'N/A'),
             draught=str(ext_refs.get('draught', 'N/A')) if ext_refs.get('draught') is not None else 'N/A',
             destination=ext_refs.get('destination', 'N/A'),
-            timestamp=str(ts),
+            timestamp=parse_timestamp(ext_refs.get('timestamp') or vessel.updated_at),
             latitude=None,
             longitude=None
         )

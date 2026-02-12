@@ -42,6 +42,8 @@ type VesselDetails = {
     draught: number;
     destination: string;
     timestamp: string;
+    latitude?: number;  // 🆕 Added for routing
+    longitude?: number; // 🆕 Added for routing
   };
   status: string;
 };
@@ -97,10 +99,33 @@ export default function AisLiveMap({
   
   // 🆕 Estado para manejar errores de barcos
   const [vesselError, setVesselError] = useState<VesselError | null>(null);
+
+  // 🆕 Helper para formatear fechas de manera consistente (M/D/YYYY, 12h)
+  const formatDate = (dateValue: string | number | Date | null | undefined) => {
+    if (!dateValue || dateValue === "N/A") return "N/A";
+    try {
+      const d = new Date(dateValue);
+      if (isNaN(d.getTime())) return String(dateValue);
+      return d.toLocaleString("en-US");
+    } catch {
+      return String(dateValue);
+    }
+  };
+
   
   // 🆕 Estado para puertos
   const [selectedPort, setSelectedPort] = useState<PortDetails | null>(null);
   const [loadingPortDetails, setLoadingPortDetails] = useState(false);
+  
+  // 🆕 Route state & ref to prevent stale closures in background loops
+  const [routeData, setRouteData] = useState<Feature<any> | null>(null);
+  const routeDataRef = useRef<Feature<any> | null>(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    routeDataRef.current = routeData;
+  }, [routeData]);
 
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
@@ -115,6 +140,8 @@ export default function AisLiveMap({
   const PORTS_SOURCE_ID = "ports-source";
   const PORTS_LAYER_ID = "ports-layer";
   const PORT_IMAGE_ID = "port-icon";
+  const ROUTE_SOURCE_ID = "route-source";
+  const ROUTE_LAYER_ID = "route-layer";
 
   const [connected, setConnected] = useState(false);
   const [vesselCount, setVesselCount] = useState(0);
@@ -188,6 +215,30 @@ export default function AisLiveMap({
     
   }, [persistedCenter, persistedZoom]); // Dependemos de las props suscritas
 
+  // 🆕 EFECTO: Actualizar la capa de ruta cuando routeData cambia
+  useEffect(() => {
+    if (!mapRef.current) return;
+    
+    // Check if source exists
+    const routeSource = mapRef.current.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined;
+    
+    if (routeSource) {
+      console.debug("[ROUTE] Updating route data", routeData);
+      routeSource.setData({
+        type: "FeatureCollection",
+        features: routeData ? [routeData] : []
+      });
+    } else {
+        // If source doesn't exist yet but we have data, we might need to add it?
+        // Usually the main onLoad adds the source. If this runs before onLoad, it might miss.
+        // But mapRef.current check handles most cases.
+        // We can just log specific warning if map is ready but source isn't.
+        if (mapRef.current.loaded() && routeData) {
+            console.warn("[ROUTE] Map loaded but route source not found when trying to update data.");
+        }
+    }
+  }, [routeData]);
+
   useEffect(() => {
     if (!hydrated) return;
     if (!mapEl.current) return;
@@ -237,6 +288,33 @@ export default function AisLiveMap({
             clusterMaxZoom: 12,
           } as unknown as GeoJSONSourceSpecification;
           mapRef.current!.addSource(SOURCE_ID, sourceSpec);
+        }
+
+        // 🆕 Add route source and layer (moved to main onLoad for reliability)
+        if (mapRef.current && !mapRef.current.getSource(ROUTE_SOURCE_ID)) {
+          console.debug("[ROUTE] initializing route source with:", routeDataRef.current);
+          mapRef.current.addSource(ROUTE_SOURCE_ID, {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features: routeDataRef.current ? [routeDataRef.current] : []
+            }
+          });
+
+          mapRef.current.addLayer({
+            id: ROUTE_LAYER_ID,
+            type: "line",
+            source: ROUTE_SOURCE_ID,
+            layout: {
+              "line-join": "round",
+              "line-cap": "round"
+            },
+            paint: {
+              "line-color": "#3b82f6", // Blue-500
+              "line-width": 4,
+              "line-dasharray": [2, 1]
+            }
+          });
         }
 
         if (mapRef.current) {
@@ -613,6 +691,7 @@ export default function AisLiveMap({
                 // Limpiar estados previos
                 setVesselError(null);
                 setSelectedVessel(null);
+                setRouteData(null); // Clear route on selection change
 
                 // Verificar cache
                 const cached = vesselDetailsCache.current.get(mmsi);
@@ -685,6 +764,7 @@ export default function AisLiveMap({
                 setVesselError(null);
                 setSelectedVessel(null);
                 setSelectedPort(null);
+                setRouteData(null); // Clear route on selection change
 
                 setLoadingPortDetails(true);
                 try {
@@ -817,12 +897,22 @@ export default function AisLiveMap({
       const startFlush = () => {
         if (flushTimerRef.current != null) return;
         flushTimerRef.current = window.setInterval(() => {
-          if (
-            !flushNeededRef.current ||
-            !sourceReadyRef.current ||
-            !mapRef.current
-          )
-            return;
+          if (!sourceReadyRef.current || !mapRef.current) return;
+
+          // 🆕 Watchdog: Ensure route layer is in sync with state
+          // Moved before flushNeededRef check to be truly independent
+          const routeSource = mapRef.current.getSource(ROUTE_SOURCE_ID) as GeoJSONSource | undefined;
+          if (routeSource) {
+            // Only update if there's actually data, to avoid flickering with empty sets if not needed
+            // But if routeDataRef.current is null, we DO want to clear it.
+            routeSource.setData({
+              type: "FeatureCollection",
+              features: routeDataRef.current ? [routeDataRef.current] : []
+            });
+          }
+
+          if (!flushNeededRef.current) return;
+          
           const m = mapRef.current;
           const b = m.getBounds();
           const west = b.getWest();
@@ -1227,13 +1317,64 @@ export default function AisLiveMap({
             </div>
             <div className="flex justify-between">
               <span className="font-medium">ETA:</span>
-              <span>{selectedVessel.data.eta || "N/A"}</span>
+              <span>{formatDate(selectedVessel.data.eta)}</span>
             </div>
             <div className="flex justify-between">
               <span className="font-medium">Last Update:</span>
-              <span>{new Date(selectedVessel.data.timestamp).toLocaleString()}</span>
+              <span>{formatDate(selectedVessel.data.timestamp)}</span>
             </div>
           </div>
+
+          {/* 🆕 Route Logic */}
+          {selectedVessel.data.destination && selectedVessel.data.destination !== "N/A" && (selectedVessel.data.latitude != null && selectedVessel.data.longitude != null) && (
+             <button
+               onClick={async () => {
+                   if (!selectedVessel.data.destination) return;
+                   setLoadingRoute(true);
+                   try {
+                       const dest = selectedVessel.data.destination.trim();
+                       // Backend handles normalization now (e.g. USXXX -> US XXX, splitting >>)
+                       
+                       const port = await apiFetch<PortDetails>(`/ports/search?unlocode=${encodeURIComponent(dest)}`);
+                       
+                       if (port && port.xcoord && port.ycoord) {
+                           const routeFeature: Feature = {
+                               type: "Feature",
+                               geometry: {
+                                   type: "LineString",
+                                   coordinates: [
+                                       [selectedVessel.data.longitude!, selectedVessel.data.latitude!],
+                                       [port.xcoord, port.ycoord]
+                                   ]
+                               },
+                               properties: {}
+                           };
+                           setRouteData(routeFeature);
+                           
+                           // Fit bounds to show route
+                           if (mapRef.current) {
+                               const maplibregl = (await import("maplibre-gl")).default;
+                               const bounds = new maplibregl.LngLatBounds();
+                               bounds.extend([selectedVessel.data.longitude!, selectedVessel.data.latitude!]);
+                               bounds.extend([port.xcoord, port.ycoord]);
+                               mapRef.current.fitBounds(bounds, { padding: 100 });
+                           }
+                       } else {
+                           alert("Destination port coordinates not found.");
+                       }
+                   } catch (e) {
+                       console.error("Failed to find route endpoint", e);
+                       alert("Could not find destination port.");
+                   } finally {
+                       setLoadingRoute(false);
+                   }
+               }}
+               className="mt-4 w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+               disabled={loadingRoute}
+             >
+                 {loadingRoute ? "Calculating..." : "Show Route to Destination"}
+             </button>
+          )}
         </div>
       )}
 

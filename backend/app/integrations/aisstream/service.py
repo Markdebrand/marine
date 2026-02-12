@@ -152,8 +152,10 @@ class AISBridgeService:
                                     ais_message = message['Message']['ShipStaticData']
                                     ship_id = str(ais_message['UserID'])
                                     
+                                    
                                     # Almacenar datos estáticos
-                                    processed_data = self._process_static_data(ais_message)
+                                    metadata = message.get("MetaData", {})
+                                    processed_data = self._process_static_data(ais_message, metadata)
                                     self._ship_static_data[ship_id] = processed_data
                                     
                                     # Notificar a cualquier listener esperando este MMSI
@@ -230,7 +232,7 @@ class AISBridgeService:
         return None
 
     # NUEVO: Procesar datos estáticos
-    def _process_static_data(self, ais_message):
+    def _process_static_data(self, ais_message, metadata=None):
         """Procesa datos estáticos del barco"""
         dimensions = ais_message.get('Dimension', {})
         ship_id = str(ais_message.get('UserID', 'N/A'))
@@ -246,9 +248,52 @@ class AISBridgeService:
             
             # Validar que los valores sean válidos
             if month > 0 and day > 0:
-                # Usar año actual como referencia
-                current_year = datetime.now(timezone.utc).year
-                eta_formatted = f"{current_year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}"
+                # Usar tiempo del mensaje (MetaData) como referencia si existe
+                now = datetime.now(timezone.utc)
+                if metadata and "time_utc" in metadata:
+                    try:
+                        # Formato ejemplo: "2026-02-10 19:35:22.440065091 +0000 UTC"
+                        # Parsing simple: tomamos hasta el segundo y asumiendo UTC
+                        ts_str = metadata["time_utc"].split('.')[0]
+                        # A veces viene como "2026-02-10 19:35:22"
+                        # O con zona horaria.
+                        # Para robustez, intentamso parsear lo mejor posible.
+                        # Si tiene space +0000 UTC al final lo limpiamos
+                        if " +0000 UTC" in metadata["time_utc"]:
+                             ts_str = metadata["time_utc"].split(" +0000 UTC")[0]
+                             # Puede tener nanosegundos dsp del punto
+                             ts_str = ts_str.split('.')[0]
+                             
+                        now = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                    except Exception as e:
+                        logging.warning(f"Error parsing MetaData time: {e}, using system time")
+
+                current_year = now.year
+                
+                # Intentar construir la fecha con el año actual
+                try:
+                    target_date = datetime(current_year, month, day, hour, minute, tzinfo=timezone.utc)
+                except ValueError:
+                    # Si falla (ej: 29 feb en año no bisiesto), intentamos ajustar o ignorar
+                    # Para simplificar, si falla la fecha, la dejamos como N/A o intentamos el día 1
+                    target_date = None
+
+                if target_date:
+                    # Lógica de inferencia de año:
+                    # Si la fecha objetivo está a más de 6 meses (180 días) en el pasado respecto a 'now',
+                    # asumimos que se refiere al año siguiente.
+                    # Si está a más de 6 meses en el futuro, asumimos que es del año pasado (dato viejo o reloj mal configurado).
+                    
+                    diff = target_date - now
+                    
+                    if diff.days < -180:
+                        # Probablemente es fecha del año próximo (ej: Estamos en Dic, ETA es Ene)
+                        target_date = target_date.replace(year=current_year + 1)
+                    elif diff.days > 180:
+                        # Probablemente es fecha del año pasado (ej: Estamos en Ene, ETA es Dic del año anterior)
+                        target_date = target_date.replace(year=current_year - 1)
+                        
+                    eta_formatted = target_date.strftime("%Y-%m-%d %H:%M")
         
         return {
             "ship_name": ais_message.get('Name', ais_message.get('ShipName', 'N/A')).strip(),

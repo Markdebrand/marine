@@ -228,6 +228,63 @@ async def list_ports(db: Session = Depends(get_db), current_user: m.User = Depen
     return PortListResponse(ports=port_entries)
 
 
+@router.get("/search")
+async def search_ports(
+    unlocode: str = None,
+    db: Session = Depends(get_db),
+    current_user: m.User = Depends(get_current_user)
+):
+    """
+    Search for a port by UN/LOCODE.
+    Includes normalization logic for messy inputs:
+    - Takes last 6 chars
+    - Removes symbols
+    - Normalizes "USXXX" to "US XXX"
+    """
+    if not unlocode:
+        raise HTTPException(status_code=400, detail="UN/LOCODE parameter is required")
+
+    # 1. Take last 6 characters
+    raw = unlocode.strip()
+    if len(raw) > 6:
+        raw = raw[-6:]
+    
+    # 2. Remove symbols: .,><_-?/
+    import re
+    cleaned = re.sub(r'[.,><_\-\?/]', '', raw)
+    
+    # 3. Normalize UN/LOCODEs (XXYYY -> XX YYY)
+    # Most UN/LOCODEs follow the 2-char country + 3-char port scheme with a space
+    if len(cleaned) == 5 and ' ' not in cleaned:
+        cleaned = f"{cleaned[:2]} {cleaned[2:]}"
+        
+    final_query = cleaned.strip()
+    
+    # logging.info(f"Searching port: input='{unlocode}' -> normalized='{final_query}'")
+
+    # Case-insensitive search
+    port = db.query(m.MarinePort).filter(m.MarinePort.unlocode.ilike(final_query)).first()
+    
+    if not port:
+        # Fallback: search by name (case-insensitive, partial match)
+        port = db.query(m.MarinePort).filter(m.MarinePort.name.ilike(f"%{unlocode.strip()}%")).first()
+    
+    if not port:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Port with UN/LOCODE '{final_query}' or name '{unlocode}' not found"
+        )
+        
+    # Manual conversion to dict to safely exclude the binary 'coords' field
+    # reusing logic from get_port_details
+    port_data = {}
+    for column in m.MarinePort.__table__.columns:
+        if column.name != 'coords':
+            port_data[column.name] = getattr(port, column.name)
+            
+    return port_data
+
+
 @router.get("/details/{port_number}")
 async def get_port_details(port_number: int, db: Session = Depends(get_db), current_user: m.User = Depends(get_current_user)):
     """
