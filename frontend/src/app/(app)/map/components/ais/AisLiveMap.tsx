@@ -99,6 +99,19 @@ export default function AisLiveMap({
   
   // 🆕 Estado para manejar errores de barcos
   const [vesselError, setVesselError] = useState<VesselError | null>(null);
+
+  // 🆕 Helper para formatear fechas de manera consistente (M/D/YYYY, 12h)
+  const formatDate = (dateValue: string | number | Date | null | undefined) => {
+    if (!dateValue || dateValue === "N/A") return "N/A";
+    try {
+      const d = new Date(dateValue);
+      if (isNaN(d.getTime())) return String(dateValue);
+      return d.toLocaleString("en-US");
+    } catch {
+      return String(dateValue);
+    }
+  };
+
   
   // 🆕 Estado para puertos
   const [selectedPort, setSelectedPort] = useState<PortDetails | null>(null);
@@ -1304,18 +1317,11 @@ export default function AisLiveMap({
             </div>
             <div className="flex justify-between">
               <span className="font-medium">ETA:</span>
-              <span>{selectedVessel.data.eta || "N/A"}</span>
+              <span>{formatDate(selectedVessel.data.eta)}</span>
             </div>
             <div className="flex justify-between">
               <span className="font-medium">Last Update:</span>
-              <span>{(() => {
-                try {
-                  const d = new Date(selectedVessel.data.timestamp);
-                  return isNaN(d.getTime()) ? selectedVessel.data.timestamp : d.toLocaleString();
-                } catch {
-                  return selectedVessel.data.timestamp || "N/A";
-                }
-              })()}</span>
+              <span>{formatDate(selectedVessel.data.timestamp)}</span>
             </div>
           </div>
 

@@ -253,9 +253,9 @@ async def search_ports(
     import re
     cleaned = re.sub(r'[.,><_\-\?/]', '', raw)
     
-    # 3. Normalize US ports (USXXX -> US XXX)
-    # If it starts with US, length is 5, and no space exists
-    if cleaned.upper().startswith("US") and len(cleaned) == 5:
+    # 3. Normalize UN/LOCODEs (XXYYY -> XX YYY)
+    # Most UN/LOCODEs follow the 2-char country + 3-char port scheme with a space
+    if len(cleaned) == 5 and ' ' not in cleaned:
         cleaned = f"{cleaned[:2]} {cleaned[2:]}"
         
     final_query = cleaned.strip()
@@ -266,7 +266,14 @@ async def search_ports(
     port = db.query(m.MarinePort).filter(m.MarinePort.unlocode.ilike(final_query)).first()
     
     if not port:
-        raise HTTPException(status_code=404, detail=f"Port with UN/LOCODE {final_query} not found (normalized from {unlocode})")
+        # Fallback: search by name (case-insensitive, partial match)
+        port = db.query(m.MarinePort).filter(m.MarinePort.name.ilike(f"%{unlocode.strip()}%")).first()
+    
+    if not port:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Port with UN/LOCODE '{final_query}' or name '{unlocode}' not found"
+        )
         
     # Manual conversion to dict to safely exclude the binary 'coords' field
     # reusing logic from get_port_details
