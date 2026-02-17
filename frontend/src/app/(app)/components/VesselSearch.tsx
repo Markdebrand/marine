@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 interface VesselData {
   ship_name: string;
   ship_type: string;
+  flag: string;
   call_sign: string;
   latitude?: number;
   longitude?: number;
@@ -94,6 +95,7 @@ export default function VesselSearch() {
               <div className="text-xs text-slate-600 space-y-1">
                 <p>MMSI: <span className="font-mono text-slate-800">{result.mmsi}</span></p>
                 <p>Type: {result.data.ship_type}</p>
+                <p>Flag: {result.data.flag || "N/A"}</p>
                 <p>Call Sign: {result.data.call_sign}</p>
               </div>
               

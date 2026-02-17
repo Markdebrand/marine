@@ -29,6 +29,7 @@ type VesselDetails = {
     imo_number: number;
     call_sign: string;
     ship_type: string;
+    flag: string;
     dimensions: {
       a: number;
       b: number;
@@ -1306,6 +1307,12 @@ export default function AisLiveMap({
             <div className="flex justify-between">
               <span className="font-medium">Destination:</span>
               <span>{selectedVessel.data.destination || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-medium">Flag:</span>
+              <span className="flex items-center gap-2">
+                {selectedVessel.data.flag || "N/A"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="font-medium">Draught:</span>

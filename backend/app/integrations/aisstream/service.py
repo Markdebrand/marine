@@ -542,6 +542,14 @@ class AISBridgeService:
                     "timestamp": d.get("timestamp")
                 }
                 
+                # Extract MID from MMSI for the flag field (first 3 digits)
+                flag_mid = None
+                if mmsi and len(mmsi) >= 3:
+                    try:
+                        flag_mid = int(mmsi[:3])
+                    except (ValueError, TypeError):
+                        flag_mid = None
+
                 rows.append({
                     "mmsi": mmsi,
                     "imo": imo_str,
@@ -549,8 +557,10 @@ class AISBridgeService:
                     "type": ship_type_str,
                     "length": length,
                     "width": width,
+                    "flag": flag_mid,  # Auto-assigned from MMSI
                     "ext_refs": ext_refs
                 })
+
 
             stmt = insert(MarineVessel).values(rows)
             # ON CONFLICT DO UPDATE
@@ -562,8 +572,10 @@ class AISBridgeService:
                     "type": stmt.excluded.type,
                     "length": stmt.excluded.length,
                     "width": stmt.excluded.width,
+                    "flag": stmt.excluded.flag,
                     "ext_refs": stmt.excluded.ext_refs,
                     "updated_at": datetime.now(timezone.utc)
+
                 }
             )
             session.execute(stmt)

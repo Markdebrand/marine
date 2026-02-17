@@ -25,6 +25,7 @@ from .user_preferences import UserPreference
 from .res_user import ResUser
 from .marine_port import MarinePort
 from .marine_vessel import MarineVessel
+from .marine_country import MarineCountry
 from .vessel_state import VesselState
 from .vessel_snapshot import VesselSnapshot
 from .marine_watchlist import MarineWatchlist
@@ -57,6 +58,7 @@ __all__ = [
     "ResUser",
     "MarinePort",
     "MarineVessel",
+    "MarineCountry",
     "VesselState",
     "VesselSnapshot",
     "MarineWatchlist",

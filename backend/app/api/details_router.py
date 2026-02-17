@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from app.db.database import get_db
 from app.db.models.marine_vessel import MarineVessel
+from app.db.models.marine_country import MarineCountry
 from app.schemas.vessel_schemas import VesselDetailsWrapper, VesselData, VesselDimensions
 
 router = APIRouter(prefix="/details", tags=["details"])
@@ -111,6 +112,18 @@ async def get_ship_details(
         except Exception as e:
             logger.error(f"Error obteniendo datos del servicio: {str(e)}")
 
+    # Obtener nombre del país (flag) basado en los primeros 3 dígitos del MMSI
+    country_name = "N/A"
+    try:
+        mid = int(mmsi[:3])
+        country = db.execute(
+            select(MarineCountry).where(MarineCountry.mid == mid)
+        ).scalar_one_or_none()
+        if country:
+            country_name = country.country
+    except (ValueError, TypeError):
+        pass
+
     if realtime_data:
         try:
             dims_data = realtime_data.get('dimensions', {})
@@ -122,6 +135,7 @@ async def get_ship_details(
                 imo_number=str(realtime_data.get('imo_number')) if realtime_data.get('imo_number') is not None else None,
                 call_sign=realtime_data.get('call_sign', 'N/A'),
                 ship_type=realtime_data.get('ship_type', 'Unknown'),
+                flag=country_name,
                 dimensions=VesselDimensions(
                     a=int(dims_data.get('a', 0)),  # Asegúrate de que estos son enteros
                     b=int(dims_data.get('b', 0)),
@@ -169,6 +183,7 @@ async def get_ship_details(
             imo_number=str(vessel.imo),  # Convertir a string
             call_sign=ext_refs.get('call_sign', 'N/A'),
             ship_type=vessel.type or "Unknown",
+            flag=country_name,
             dimensions=VesselDimensions(
                 a=int(dims_data.get('a', 0)),  # Asegúrate que sean enteros
                 b=int(dims_data.get('b', 0)),
