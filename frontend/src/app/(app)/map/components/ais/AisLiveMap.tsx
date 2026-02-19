@@ -692,6 +692,7 @@ export default function AisLiveMap({
                 // Limpiar estados previos
                 setVesselError(null);
                 setSelectedVessel(null);
+                setSelectedPort(null);
                 setRouteData(null); // Clear route on selection change
 
                 // Verificar cache

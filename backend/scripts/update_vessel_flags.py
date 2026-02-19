@@ -48,28 +48,41 @@ def update_vessel_flags():
                 already_set += 1
                 continue
             
-            # Validar MMSI
-            if not vessel.mmsi or len(vessel.mmsi) < 3:
-                invalid_mmsi += 1
-                continue
+            mmsi = vessel.mmsi
+            mid = None
             
-            # Extraer MID (primeros 3 dígitos)
-            try:
-                mid = int(vessel.mmsi[:3])
-            except ValueError:
-                invalid_mmsi += 1
-                continue
+            # Robust parsing based on ITU MMSI structure
+            if mmsi and isinstance(mmsi, str):
+                mid_str = None
+                if mmsi.startswith("111"):  # SAR Aircraft
+                    if len(mmsi) >= 6: mid_str = mmsi[3:6]
+                elif mmsi.startswith("00"):  # Coast Stations
+                    if len(mmsi) >= 5: mid_str = mmsi[2:5]
+                elif mmsi.startswith("0"):   # Group MMSI
+                    if len(mmsi) >= 4: mid_str = mmsi[1:4]
+                elif mmsi.startswith("99") or mmsi.startswith("98"):
+                    if len(mmsi) >= 5: mid_str = mmsi[2:5]
+                elif len(mmsi) >= 3:
+                    mid_str = mmsi[:3]
+                
+                if mid_str:
+                    try:
+                        possible_mid = int(mid_str)
+                        # SAFETY CHECK: Only set if it exists in marine_country
+                        if possible_mid in valid_mids:
+                            mid = possible_mid
+                        else:
+                            mid_not_found += 1
+                            if mid_not_found <= 10:
+                                print(f"⚠️  MID {possible_mid} no encontrado (MMSI: {mmsi}, Vessel: {vessel.name})")
+                    except (ValueError, TypeError):
+                        invalid_mmsi += 1
+                else:
+                    invalid_mmsi += 1
             
-            # Verificar si el MID existe en marine_country
-            if mid not in valid_mids:
-                mid_not_found += 1
-                if mid_not_found <= 10:  # Mostrar solo los primeros 10 ejemplos
-                    print(f"⚠️  MID {mid} no encontrado (MMSI: {vessel.mmsi}, Vessel: {vessel.name})")
-                continue
-            
-            # Actualizar el flag
-            vessel.flag = mid
-            updated += 1
+            if mid:
+                vessel.flag = mid
+                updated += 1
         
         # Commit de todos los cambios
         db.commit()

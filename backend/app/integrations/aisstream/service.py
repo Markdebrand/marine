@@ -507,6 +507,10 @@ class AISBridgeService:
             
         session = SessionLocal()
         try:
+            # 1. Obtener todos los MIDs válidos para evitar ForeignKeyViolation
+            from app.db.models.marine_country import MarineCountry
+            valid_mids = {mid for (mid,) in session.query(MarineCountry.mid).all()}
+
             # Preparar datos para insert
             # MarineVessel: mmsi, imo, name, type, ext_refs
             rows = []
@@ -542,13 +546,29 @@ class AISBridgeService:
                     "timestamp": d.get("timestamp")
                 }
                 
-                # Extract MID from MMSI for the flag field (first 3 digits)
+                # Extract MID from MMSI for the flag field (handling special formats)
                 flag_mid = None
-                if mmsi and len(mmsi) >= 3:
-                    try:
-                        flag_mid = int(mmsi[:3])
-                    except (ValueError, TypeError):
-                        flag_mid = None
+                if mmsi and isinstance(mmsi, str):
+                    mid_str = None
+                    if mmsi.startswith("111"):  # SAR Aircraft
+                        if len(mmsi) >= 6: mid_str = mmsi[3:6]
+                    elif mmsi.startswith("00"):  # Coast Stations
+                        if len(mmsi) >= 5: mid_str = mmsi[2:5]
+                    elif mmsi.startswith("0"):   # Group MMSI
+                        if len(mmsi) >= 4: mid_str = mmsi[1:4]
+                    elif mmsi.startswith("99") or mmsi.startswith("98"):
+                        if len(mmsi) >= 5: mid_str = mmsi[2:5]
+                    elif len(mmsi) >= 3:
+                        mid_str = mmsi[:3]
+                    
+                    if mid_str:
+                        try:
+                            possible_mid = int(mid_str)
+                            # SAFETY CHECK: Only set if it exists in marine_country
+                            if possible_mid in valid_mids:
+                                flag_mid = possible_mid
+                        except (ValueError, TypeError):
+                            flag_mid = None
 
                 rows.append({
                     "mmsi": mmsi,

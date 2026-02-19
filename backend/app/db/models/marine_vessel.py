@@ -27,10 +27,30 @@ class MarineVessel(Base):
 
     @validates("mmsi")
     def validate_mmsi_and_set_flag(self, key, value):
-        """Automatically set the flag MID whenever mmsi is set."""
-        if value and len(value) >= 3:
+        """Automatically set the flag MID whenever mmsi is set, handling special formats."""
+        if not value or not isinstance(value, str):
+            return value
+
+        mid = None
+        # Robust parsing based on ITU MMSI structure
+        if value.startswith("111"):  # SAR Aircraft
+            if len(value) >= 6:
+                mid = value[3:6]
+        elif value.startswith("00"):  # Coast Stations
+            if len(value) >= 5:
+                mid = value[2:5]
+        elif value.startswith("0"):  # Group MMSI
+            if len(value) >= 4:
+                mid = value[1:4]
+        elif value.startswith("99") or value.startswith("98"):  # AtoN or craft associated with parent
+            if len(value) >= 5:
+                mid = value[2:5]
+        elif len(value) >= 3:  # Standard Vessel
+            mid = value[:3]
+
+        if mid:
             try:
-                self.flag = int(value[:3])
+                self.flag = int(mid)
             except (ValueError, TypeError):
                 pass
         return value
