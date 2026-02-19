@@ -14,6 +14,7 @@ class VesselData(BaseModel):
     imo_number: Optional[str] = None
     call_sign: str = "N/A"
     ship_type: str = "Unknown"
+    flag: Optional[str] = "N/A"  # Added country name/flag
     dimensions: VesselDimensions
     fix_type: str = "N/A"
     eta: str = "N/A"
