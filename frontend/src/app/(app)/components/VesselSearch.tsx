@@ -77,16 +77,16 @@ export default function VesselSearch() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search MMSI or Name..."
-            className="pl-9 pr-4 py-1 rounded-full border border-slate-300 bg-white/50 backdrop-blur-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-500 w-48 shadow-sm transition-all focus:w-64"
+            placeholder="Search..."
+            className="pl-8 sm:pl-9 pr-2 sm:pr-4 py-1 rounded-full border border-slate-300 bg-white/50 backdrop-blur-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-500 w-28 sm:w-48 shadow-sm transition-all focus:w-40 sm:focus:w-64"
           />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+          <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500" />
         </div>
       </form>
 
       {/* Result Popover */}
       {(result || error) && (
-        <div className="absolute top-full mt-2 w-72 right-0 bg-white rounded-lg shadow-xl border border-slate-100 p-4 z-50 animate-in fade-in slide-in-from-top-2">
+        <div className="absolute top-full mt-2 w-[85vw] sm:w-72 -right-8 sm:right-0 bg-white rounded-lg shadow-xl border border-slate-100 p-4 z-50 animate-in fade-in slide-in-from-top-2">
           {error && <p className="text-red-500 text-sm">{error}</p>}
           
           {result && (
