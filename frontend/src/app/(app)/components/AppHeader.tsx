@@ -16,23 +16,31 @@ export default function AppHeader() {
     null
   );
   const isMap = pathname === "/map" || pathname?.startsWith("/map/");
-  const link = (href: string, label: string) => {
+  const link = (href: string, label: string, iconSrc: string) => {
     const active = pathname === href;
     return (
       <Link
         href={href}
-        className={`px-3 py-2 rounded-md text-sm ${
-          active ? "text-red-600" : "text-slate-700 hover:text-slate-900"
+        className={`px-3 py-2 rounded-md flex items-center justify-center transition-colors ${
+          active ? "bg-red-50" : "hover:bg-slate-100"
         }`}
+        title={label}
       >
-        {label}
+        <Image 
+          src={iconSrc} 
+          alt={label} 
+          width={24} 
+          height={24} 
+          className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "opacity-100" : "opacity-70"}`} 
+          style={active ? { filter: 'invert(16%) sepia(87%) saturate(6011%) hue-rotate(357deg) brightness(92%) contrast(116%)' } : {}}
+        />
       </Link>
     );
   };
 
   const containerClass = isMap
-    ? "fixed top-2 z-[100] pointer-events-auto"
-    : "sticky top-4 z-50";
+    ? "fixed top-2 z-[100] pointer-events-auto w-[95%] sm:w-max"
+    : "sticky top-4 z-50 w-full";
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -52,33 +60,26 @@ export default function AppHeader() {
 
   return (
     <div className={containerClass} style={isMap ? { left: '50%', transform: 'translateX(-50%)' } : {}}>
-      <div className={`${isMap ? 'w-max' : 'max-w-7xl mx-auto'} px-4`}>
-        <div className="glass-card flex items-center justify-between gap-4 p-2 border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md">
-          <div className="flex items-center gap-2">
-            <Image
-              src="/Icon.png"
-              alt="MarinaLive"
-              width={24}
-              height={24}
-              className="h-6 w-6 sm:hidden"
-            />
+      <div className={`${isMap ? 'w-full sm:w-max' : 'w-full sm:max-w-7xl mx-auto'} px-2 sm:px-4`}>
+        <div className="glass-card flex items-center justify-between gap-2 sm:gap-4 p-2 border border-white/30 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur-md overflow-x-auto hide-scrollbar whitespace-nowrap">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <Image
               src="/HSOMarineIsotype.svg"
               alt="HSO Marine"
               width={160}
               height={24}
-              className="hidden sm:inline-block h-6 w-auto"
+              className="h-6 w-auto max-w-[120px] sm:max-w-none"
             />
             <span className="sr-only">HSO Marine</span>
           </div>
-          <div className="flex items-center gap-1 relative">
-            <nav className="flex items-center gap-1">
-              {link("/dashboard", "Dashboard")}
-              {link("/map", "Live Map")}
-              {link("/watchlist", "Watchlist")}
+          <div className="flex items-center gap-1 relative shrink-0">
+            <nav className="flex items-center gap-1 sm:gap-2">
+              {link("/dashboard", "Dashboard", "/dashboard.svg")}
+              {link("/map", "Live Map", "/map.svg")}
+              {link("/watchlist", "Watchlist", "/eye.svg")}
             </nav>
             
-            <div className="mx-2">
+            <div className="mx-1 sm:mx-2">
                <VesselSearch />
             </div>
 

@@ -1173,7 +1173,7 @@ export default function AisLiveMap({
       
       {/* 🆕 Panel de error cuando el barco no envía datos estáticos */}
       {vesselError && (
-        <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10 border-l-4 border-orange-500">
+        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-10 border-t-4 sm:border-t-0 sm:border-l-4 border-orange-500 max-h-[50vh] overflow-y-auto">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-3">
               <div className="text-orange-500 text-2xl">⚠️</div>
@@ -1203,8 +1203,8 @@ export default function AisLiveMap({
       
       {/* 🆕 Panel de detalles del puerto */}
       {selectedPort && (
-        <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10 border-l-4 border-emerald-500">
-          <div className="flex justify-between items-start mb-4">
+        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-10 border-t-4 sm:border-t-0 sm:border-l-4 border-emerald-500 max-h-[65vh] sm:max-h-[80vh] overflow-y-auto">
+          <div className="flex justify-between items-start mb-4 sticky top-0 bg-white z-20 pb-2">
             <div>
               <h2 className="text-xl font-bold text-gray-800">
                 {selectedPort.port_name || selectedPort.name || "Port Details"}
@@ -1361,8 +1361,8 @@ export default function AisLiveMap({
       
       {/* Panel de detalles del barco (exitoso) */}
       {selectedVessel && !selectedPort && (
-        <div className="absolute top-4 right-4 bg-white p-6 rounded-lg shadow-lg max-w-md z-10">
-          <div className="flex justify-between items-start mb-4">
+        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-10 max-h-[65vh] sm:max-h-[80vh] overflow-y-auto">
+          <div className="flex justify-between items-start mb-4 sticky top-0 bg-white z-20 pb-2">
             <h2 className="text-xl font-bold text-gray-800">
               {selectedVessel.data.ship_name || "N/A"}
             </h2>
@@ -1473,7 +1473,7 @@ export default function AisLiveMap({
       )}
 
       {/* Indicador de estado de conexión */}
-      <div className="absolute top-3 right-3 z-50">
+      <div className="absolute top-16 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:top-24 sm:right-4 sm:left-auto z-50">
         <div
           className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-2"
           style={{ background: "rgba(255,255,255,0.9)" }}
