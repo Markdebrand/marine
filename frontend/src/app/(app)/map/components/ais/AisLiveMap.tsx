@@ -128,6 +128,10 @@ export default function AisLiveMap({
     routeDataRef.current = routeData;
   }, [routeData]);
 
+  // 🆕 Arriving vessels state
+  const [arrivingVessels, setArrivingVessels] = useState<any[] | null>(null);
+  const [loadingArriving, setLoadingArriving] = useState(false);
+
   const sourceReadyRef = useRef(false);
   const flushNeededRef = useRef(false);
   const flushTimerRef = useRef<number | null>(null);
@@ -690,10 +694,12 @@ export default function AisLiveMap({
                 }
 
                 // Limpiar estados previos
+                // Clear errors on new selection
                 setVesselError(null);
                 setSelectedVessel(null);
                 setSelectedPort(null);
                 setRouteData(null); // Clear route on selection change
+                setArrivingVessels(null); // 🆕 Clear arriving vessels on vessel selection
 
                 // Verificar cache
                 const cached = vesselDetailsCache.current.get(mmsi);
@@ -767,6 +773,7 @@ export default function AisLiveMap({
                 setSelectedVessel(null);
                 setSelectedPort(null);
                 setRouteData(null); // Clear route on selection change
+                setArrivingVessels(null); // 🆕 Clear arriving vessels on port selection change
 
                 setLoadingPortDetails(true);
                 try {
@@ -1267,6 +1274,85 @@ export default function AisLiveMap({
               <div className="flex justify-between">
                 <span className="font-medium">Chart:</span>
                 <span>{selectedPort.chart_number}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <button
+              onClick={async () => {
+                if (!selectedPort) return;
+                setLoadingArriving(true);
+                try {
+                  const res = await apiFetch<any>(`/ports/${selectedPort.port_number}/arriving`);
+                  setArrivingVessels(res?.vessels || []);
+                } catch (e) {
+                  console.error("Failed to fetch arriving vessels", e);
+                  setArrivingVessels([]);
+                } finally {
+                  setLoadingArriving(false);
+                }
+              }}
+              className="w-full py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              disabled={loadingArriving}
+            >
+              {loadingArriving ? "Cargando..." : "View Arriving Vessels"}
+            </button>
+            
+            {arrivingVessels !== null && (
+              <div className="mt-4">
+                <h3 className="font-semibold text-gray-700 mb-2">
+                  Barcos en camino ({arrivingVessels.length})
+                </h3>
+                {arrivingVessels.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">No se encontraron barcos en camino.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {arrivingVessels.map(v => (
+                      <div 
+                        key={v.mmsi}
+                        className="p-2 bg-gray-50 hover:bg-emerald-50 border border-gray-100 rounded cursor-pointer transition-colors"
+                        onClick={() => {
+                          const mmsi = v.mmsi;
+                          if (v.latitude && v.longitude && mapRef.current) {
+                            mapRef.current.flyTo({ center: [v.longitude, v.latitude], zoom: 8 });
+                            // Trigger selection logic manually 
+                            setSelectedPort(null);
+                            
+                            // Mocking a feature to trigger the same logic as real map click if needed
+                            // For simplicity, we just fetch using the same flow used for points
+                            const fetchDetails = async () => {
+                              try {
+                                setLoadingDetails(true);
+                                const details = await apiFetch<VesselDetails>(`/details/${mmsi}`);
+                                setSelectedVessel(details);
+                              } catch (e) {
+                                console.error(e);
+                              } finally {
+                                setLoadingDetails(false);
+                              }
+                            };
+                            fetchDetails();
+                          }
+                        }}
+                      >
+                        <div className="font-medium text-sm text-gray-800">{v.ship_name || "Unknown"}</div>
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>MMSI: {v.mmsi}</span>
+                          <span className="capitalize">{v.ship_type?.toLowerCase() || ''}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 flex justify-between">
+                          <span>ETA: {v.eta !== "N/A" ? formatDate(v.eta) : "N/A"}</span>
+                          {v.source === "realtime" ? (
+                            <span className="text-emerald-500 text-[10px] uppercase font-semibold">En vivo</span>
+                          ) : (
+                            <span className="text-gray-400 text-[10px] uppercase font-semibold">DB</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

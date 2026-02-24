@@ -302,3 +302,90 @@ async def get_port_details(port_number: int, db: Session = Depends(get_db), curr
             port_data[column.name] = getattr(port, column.name)
             
     return port_data
+
+
+# Dependencia para obtener el servicio AISBridge (similar a details_router)
+def get_ais_bridge_service():
+    from app.main import app
+    return getattr(app.state, "ais_bridge", None)
+
+
+@router.get("/{port_number}/arriving")
+async def get_arriving_vessels(
+    port_number: int, 
+    db: Session = Depends(get_db), 
+    current_user: m.User = Depends(get_current_user),
+    service = Depends(get_ais_bridge_service)
+):
+    """
+    Get all vessels that have this port as their destination.
+    It searches both the realtime in-memory data and the database fallback.
+    """
+    port = db.query(m.MarinePort).filter(m.MarinePort.port_number == port_number).first()
+    
+    if not port:
+        raise HTTPException(status_code=404, detail=f"Port with number {port_number} not found")
+
+    search_terms = []
+    if port.unlocode:
+        search_terms.append(port.unlocode.strip().lower())
+        # Also try without space for unnormalized AIS inputs just in case
+        search_terms.append(port.unlocode.replace(" ", "").lower())
+    if port.name:
+        search_terms.append(port.name.strip().lower())
+
+    # 1. Search in DB
+    db_vessels = []
+    for term in search_terms:
+        # We query the JSONB ext_refs->>'destination'
+        vessels = db.execute(
+            text("SELECT mmsi, name, type, ext_refs FROM marine_vessel WHERE ext_refs->>'destination' ILIKE :term"),
+            {"term": f"%{term}%"}
+        ).fetchall()
+        db_vessels.extend(vessels)
+
+    results_map = {} # deduplicate by MMSI
+    
+    for v in db_vessels:
+        mmsi = v[0]
+        ext_refs = v[3] or {}
+        results_map[mmsi] = {
+            "mmsi": mmsi,
+            "ship_name": v[1] or ext_refs.get("ship_name", "Unknown"),
+            "ship_type": v[2] or ext_refs.get("ship_type", "Unknown"),
+            "destination": ext_refs.get("destination", "N/A"),
+            "eta": ext_refs.get("eta", "N/A"),
+            "draught": ext_refs.get("draught", "N/A"),
+            "source": "db"
+        }
+
+    # 2. Search in Realtime Service
+    if service:
+        for term in search_terms:
+            realtime_vessels = service.get_vessels_by_destination(term)
+            for rv in realtime_vessels:
+                mmsi = rv["mmsi"]
+                # Override or add
+                results_map[mmsi] = {
+                    "mmsi": mmsi,
+                    "ship_name": rv.get("ship_name", "Unknown"),
+                    "ship_type": rv.get("ship_type", "Unknown"),
+                    "destination": rv.get("destination", "N/A"),
+                    "eta": rv.get("eta", "N/A"),
+                    "draught": rv.get("draught", "N/A"),
+                    "source": "realtime"
+                }
+
+    # Format output list
+    final_list = list(results_map.values())
+    
+    # Optionally enrich with current coordinates if service is active
+    if service:
+        for v in final_list:
+            pos = service.get_ship_position(v["mmsi"])
+            if pos:
+                v["latitude"] = pos[0]
+                v["longitude"] = pos[1]
+
+    return {"port": port.name, "count": len(final_list), "vessels": final_list}
+

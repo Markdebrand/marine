@@ -211,6 +211,19 @@ class AISBridgeService:
                 del self._static_data_listeners[mmsi]
             raise e
 
+    def get_vessels_by_destination(self, search_query: str) -> list[dict]:
+        """Busca barcos en memoria cuyo destino coincida parcialmente con el query."""
+        results = []
+        query_lower = search_query.lower().strip()
+        for mmsi, data in self._ship_static_data.items():
+            dest = data.get("destination", "").lower()
+            if query_lower in dest and dest != "n/a":
+                # Agregar MMSI al diccionario para conveniencia
+                vessel_info = data.copy()
+                vessel_info["mmsi"] = mmsi
+                results.append(vessel_info)
+        return results
+
     def get_ship_position(self, mmsi: str) -> Optional[Tuple[float, float]]:
         """Devuelve la última posición (lat, lon) conocida en memoria, o Redis si hay fallback."""
         # 1. Intentar memoria local
