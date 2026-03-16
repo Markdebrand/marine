@@ -1173,7 +1173,7 @@ export default function AisLiveMap({
       
       {/* 🆕 Panel de error cuando el barco no envía datos estáticos */}
       {vesselError && (
-        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-10 border-t-4 sm:border-t-0 sm:border-l-4 border-orange-500 max-h-[50vh] overflow-y-auto">
+        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-60 border-t-4 sm:border-t-0 sm:border-l-4 border-orange-500 max-h-[50vh] overflow-y-auto">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-3">
               <div className="text-orange-500 text-2xl">⚠️</div>
@@ -1203,7 +1203,7 @@ export default function AisLiveMap({
       
       {/* 🆕 Panel de detalles del puerto */}
       {selectedPort && (
-        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-10 border-t-4 sm:border-t-0 sm:border-l-4 border-emerald-500 max-h-[65vh] sm:max-h-[80vh] overflow-y-auto">
+        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-60 border-t-4 sm:border-t-0 sm:border-l-4 border-emerald-500 max-h-[65vh] sm:max-h-[80vh] overflow-y-auto">
           <div className="flex justify-between items-start mb-4 sticky top-0 bg-white z-20 pb-2">
             <div>
               <h2 className="text-xl font-bold text-gray-800">
@@ -1361,7 +1361,7 @@ export default function AisLiveMap({
       
       {/* Panel de detalles del barco (exitoso) */}
       {selectedVessel && !selectedPort && (
-        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-10 max-h-[65vh] sm:max-h-[80vh] overflow-y-auto">
+        <div className="absolute bottom-0 left-0 w-full rounded-t-2xl sm:bottom-auto sm:left-auto sm:top-20 sm:right-4 bg-white p-4 sm:p-6 sm:rounded-lg shadow-[0_-4px_20px_rgba(0,0,0,0.1)] sm:shadow-lg sm:max-w-md z-60 max-h-[65vh] sm:max-h-[80vh] overflow-y-auto">
           <div className="flex justify-between items-start mb-4 sticky top-0 bg-white z-20 pb-2">
             <h2 className="text-xl font-bold text-gray-800">
               {selectedVessel.data.ship_name || "N/A"}
@@ -1504,7 +1504,7 @@ export default function AisLiveMap({
 
       {/* Indicador de carga */}
       {(loadingDetails || loadingPortDetails) && (
-        <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg z-10">
+        <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-lg z-70">
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
             <span>Loading {loadingPortDetails ? 'port' : 'vessel'} details...</span>
