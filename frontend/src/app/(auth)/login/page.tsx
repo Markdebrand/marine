@@ -1,8 +1,20 @@
 "use client";
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/authStore";
 import LoginCard from "./components/LoginCard";
 
 export default function LoginPage() {
+  const { status } = useAuthStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/map");
+    }
+  }, [status, router]);
+
   return (
     <section className="relative min-h-screen grid md:grid-cols-2">
       {/* Fondo: ocupa toda la pantalla debajo de la card */}
