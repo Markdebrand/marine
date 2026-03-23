@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Search } from "lucide-react";
 import { useMapStore } from "@/app/(app)/map/store/mapStore";
 import { useRouter } from "next/navigation";
@@ -25,6 +26,31 @@ export default function VesselSearch() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VesselDetailsWrapper | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resultPos, setResultPos] = useState<{ top: number; left: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (result || error) {
+      const updatePosition = () => {
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          setResultPos({
+            top: rect.bottom + 8 + window.scrollY,
+            left: rect.left + rect.width / 2 + window.scrollX,
+          });
+        }
+      };
+      updatePosition();
+      window.addEventListener("resize", updatePosition);
+      window.addEventListener("scroll", updatePosition);
+      return () => {
+        window.removeEventListener("resize", updatePosition);
+        window.removeEventListener("scroll", updatePosition);
+      };
+    } else {
+      setResultPos(null);
+    }
+  }, [result, error]);
   
   const setView = useMapStore((s) => s.setView);
   const router = useRouter();
@@ -70,7 +96,7 @@ export default function VesselSearch() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <form onSubmit={handleSearch} className="flex items-center">
         <div className="relative">
           <input
@@ -85,8 +111,17 @@ export default function VesselSearch() {
       </form>
 
       {/* Result Popover */}
-      {(result || error) && (
-        <div className="absolute top-full mt-2 w-[85vw] sm:w-72 -right-8 sm:right-0 bg-white rounded-lg shadow-xl border border-slate-100 p-4 z-50 animate-in fade-in slide-in-from-top-2">
+      {(result || error) && resultPos && typeof document !== "undefined" && createPortal(
+        <div
+          style={{
+            position: "absolute",
+            top: resultPos.top,
+            left: resultPos.left,
+            transform: "translateX(-50%)",
+            zIndex: 2000,
+          }}
+          className="w-[85vw] sm:w-72 bg-white rounded-lg shadow-xl border border-slate-100 p-4 animate-in fade-in slide-in-from-top-2"
+        >
           {error && <p className="text-red-500 text-sm">{error}</p>}
           
           {result && (
@@ -117,7 +152,8 @@ export default function VesselSearch() {
           >
             ×
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

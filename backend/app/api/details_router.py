@@ -73,6 +73,22 @@ async def get_ship_details(
     # Intentar tratar query como MMSI si son 9 dígitos
     if query.isdigit() and len(query) == 9:
         mmsi = query
+    elif query.isdigit() and len(query) in (7, 8):
+        # Buscar por IMO en la base de datos
+        logger.info(f"Buscando barco por IMO: {query}")
+        vessel = db.execute(
+            select(MarineVessel).where(MarineVessel.imo == query)
+        ).first()
+        
+        if vessel:
+            vessel = vessel[0]
+            mmsi = vessel.mmsi
+            logger.info(f"IMO '{query}' resuelto a MMSI: {mmsi}")
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No se encontró ningún barco con el IMO: {query}"
+            )
     else:
         # Buscar por nombre en la base de datos
         logger.info(f"Buscando barco por nombre: {query}")
@@ -87,7 +103,7 @@ async def get_ship_details(
         else:
             raise HTTPException(
                 status_code=404,
-                detail=f"No se encontró ningún barco con el nombre o MMSI: {query}"
+                detail=f"No se encontró ningún barco con el nombre, IMO o MMSI: {query}"
             )
 
     if not service:
