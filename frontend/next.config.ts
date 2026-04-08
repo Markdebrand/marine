@@ -20,11 +20,6 @@ const nextConfig: NextConfig = {
         destination: "/login",
         permanent: false,
       },
-      {
-        source: "/start-marine",
-        destination: "/login",
-        permanent: false,
-      },
     ];
   },
 };
