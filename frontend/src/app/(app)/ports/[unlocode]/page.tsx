@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Protected } from "@/components/auth/Protected";
 import { apiFetch } from "@/lib/api";
 import {
   MapPin,
@@ -164,7 +163,8 @@ export default function PortDetailsPage() {
     const fetchPort = async () => {
       try {
         setStatus("loading");
-        const data = await apiFetch<PortData>(`/ports/search?unlocode=${encodeURIComponent(unlocode)}`);
+        const cleanUnlocode = decodeURIComponent(unlocode).replace(/\s+/g, '');
+        const data = await apiFetch<PortData>(`/ports/search?unlocode=${encodeURIComponent(cleanUnlocode)}`);
         setPort(data);
         setStatus("success");
       } catch (err: any) {
@@ -179,20 +179,20 @@ export default function PortDetailsPage() {
 
   if (status === "loading") {
     return (
-      <Protected>
+      <>
         <div className="flex min-h-[50vh] items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-red-600" />
             <p className="text-slate-500 font-medium">Loading port details...</p>
           </div>
         </div>
-      </Protected>
+      </>
     );
   }
 
   if (status === "error" || !port) {
     return (
-      <Protected>
+      <>
         <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6 text-center">
           <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center text-red-600">
             <ShieldAlert className="h-8 w-8" />
@@ -200,7 +200,7 @@ export default function PortDetailsPage() {
           <div>
             <h2 className="text-2xl font-semibold text-slate-900">Port Not Found</h2>
             <p className="text-slate-500 mt-2 max-w-md">
-              {errorMsg}. Could not locate a port with UN/LOCODE: <span className="font-medium text-slate-700">{unlocode}</span>
+              {errorMsg}. Could not locate a port with UN/LOCODE: <span className="font-medium text-slate-700">{decodeURIComponent(unlocode)}</span>
             </p>
           </div>
           <button
@@ -210,12 +210,12 @@ export default function PortDetailsPage() {
             <ArrowLeft className="h-4 w-4" /> Go Back
           </button>
         </div>
-      </Protected>
+      </>
     );
   }
 
   return (
-    <Protected>
+    <>
       <main className="py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <button
           onClick={() => router.back()}
@@ -421,7 +421,7 @@ export default function PortDetailsPage() {
 
         </div>
       </main>
-    </Protected>
+    </>
   );
 }
 

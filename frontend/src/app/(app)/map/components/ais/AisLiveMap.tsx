@@ -1279,6 +1279,14 @@ export default function AisLiveMap({
           </div>
 
           <div className="mt-4 pt-4 border-t border-gray-200">
+            {selectedPort.unlocode && (
+              <a
+                href={`/ports/${selectedPort.unlocode.replace(/\s+/g, '')}`}
+                className="mb-2 w-full py-2 px-4 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                See all details
+              </a>
+            )}
             <button
               onClick={async () => {
                 if (!selectedPort) return;
