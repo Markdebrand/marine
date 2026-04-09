@@ -231,8 +231,7 @@ async def list_ports(db: Session = Depends(get_db), current_user: m.User = Depen
 @router.get("/search")
 async def search_ports(
     unlocode: str = None,
-    db: Session = Depends(get_db),
-    current_user: m.User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """
     Search for a port by UN/LOCODE.
@@ -286,7 +285,7 @@ async def search_ports(
 
 
 @router.get("/details/{port_number}")
-async def get_port_details(port_number: int, db: Session = Depends(get_db), current_user: m.User = Depends(get_current_user)):
+async def get_port_details(port_number: int, db: Session = Depends(get_db)):
     """
     Get all details for a specific port by its port_number.
     """
